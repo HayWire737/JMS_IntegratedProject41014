@@ -1,0 +1,57 @@
+# Nominal configuration. All units SI (m, rad, s).
+# Every tunable value lives here so experiments are a config change, not a code change.
+
+sim:
+  model: models/scene.xml
+  physics_dt: 0.002        # MuJoCo integration step
+  control_dt: 0.05         # control / estimation rate (20 Hz)
+  start_pose: [0.5, 0.5, 0.0]   # x, y, yaw in world frame
+  camera_every: 4          # render the camera every N control steps (5 Hz)
+  max_time: 90.0
+  seed: 0
+
+robot:                     # TurtleBot3 Burger datasheet values
+  wheel_radius: 0.033
+  wheel_base: 0.160        # distance between wheel contact points
+  encoder_ticks_per_rev: 4096
+  v_max: 0.22
+  w_max: 2.84
+
+camera:                    # mount relative to base_link, and image settings
+  x: 0.07
+  z: 0.12
+  fovy_deg: 60.0
+  width: 640
+  height: 480
+
+lidar:
+  z: 0.18
+  n_beams: 72              # 5 degree resolution
+  max_range: 3.5
+
+noise:                     # imperfections the estimator does NOT know about
+  encoder_tick_sigma: 1.0  # random tick error added per step, per wheel (random walk)
+  wheel_scale_error: [0.002, -0.002]   # left/right effective radius error (fraction), causes drift
+  lidar_sigma: 0.01
+
+marker:
+  dictionary: DICT_4X4_50
+  id: 0
+  size: 0.15               # black square edge length
+  pose_world: [4.84, 2.0, 3.141592653589793]   # x, y, yaw of marker face normal
+
+obstacles:                 # used to build the scene and draw plots (not given to the robot)
+  - {type: box, x: 2.0, y: 1.5, hx: 0.20, hy: 0.20}
+  - {type: cylinder, x: 3.0, y: 2.8, r: 0.25}
+  - {type: box, x: 3.5, y: 1.0, hx: 0.15, hy: 0.30}
+
+waypoints:              # hand-placed to avoid the obstacles, ends in front of the dock
+  - [2.6, 0.6]
+  - [2.7, 2.0]
+  - [4.3, 2.0]
+
+controller:                # baseline polar P controller (to be replaced by LQR)
+  k_rho: 0.8
+  k_alpha: 2.5
+  goal_tol: 0.08
+  stop_distance: 0.15      # LiDAR safety stop

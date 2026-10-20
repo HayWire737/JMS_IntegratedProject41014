@@ -1,0 +1,225 @@
+<mujoco model="turtlebot3_track_a">
+  <compiler angle="radian"/>
+  <option timestep="0.002" integrator="implicitfast"/>
+
+  <visual>
+    <global offwidth="640" offheight="480"/>
+    <headlight ambient="0.5 0.5 0.5" diffuse="0.5 0.5 0.5"/>
+  </visual>
+
+  <asset>
+    <texture name="sky" type="skybox" builtin="gradient" rgb1="0.8 0.85 0.9" rgb2="0.95 0.95 0.95" width="256" height="256"/>
+    <texture name="grid" type="2d" builtin="checker" rgb1="0.75 0.75 0.75" rgb2="0.65 0.65 0.65" width="300" height="300"/>
+    <material name="floor" texture="grid" texrepeat="10 10"/>
+    <material name="wall" rgba="0.85 0.85 0.8 1"/>
+    <material name="obstacle" rgba="0.6 0.3 0.2 1"/>
+    <material name="body" rgba="0.15 0.15 0.15 1"/>
+    <material name="wheel" rgba="0.05 0.05 0.05 1"/>
+    <material name="dock" rgba="0.2 0.4 0.8 1"/>
+    <texture name="aruco" type="2d" file="aruco_0.png"/>
+    <material name="aruco" texture="aruco"/>
+  </asset>
+
+  <worldbody>
+    <light pos="2.5 2 3" dir="0 0 -1" diffuse="0.6 0.6 0.6"/>
+    <geom name="floor" type="plane" size="3 2.5 0.1" pos="2.5 2 0" material="floor"/>
+
+    <!-- Walls -->
+    <geom name="wall_s" type="box" pos="2.5 -0.05 0.25" size="2.6 0.05 0.25" material="wall"/>
+    <geom name="wall_n" type="box" pos="2.5 4.05 0.25" size="2.6 0.05 0.25" material="wall"/>
+    <geom name="wall_w" type="box" pos="-0.05 2 0.25" size="0.05 2.1 0.25" material="wall"/>
+    <geom name="wall_e" type="box" pos="5.05 2 0.25" size="0.05 2.1 0.25" material="wall"/>
+
+    <!-- Obstacles -->
+    <geom name="obstacle_0" type="box" pos="2.0 1.5 0.2" size="0.2 0.2 0.2" material="obstacle"/>
+    <geom name="obstacle_1" type="cylinder" pos="3.0 2.8 0.2" size="0.25 0.2" material="obstacle"/>
+    <geom name="obstacle_2" type="box" pos="3.5 1.0 0.2" size="0.15 0.3 0.2" material="obstacle"/>
+
+    <!-- Charging dock with ArUco marker -->
+    <geom name="dock" type="box" pos="4.92 2.0 0.15" size="0.07 0.2 0.15" material="dock"/>
+    <body name="marker" pos="4.84 2.0 0.12" euler="0 0 3.141592653589793">
+      <geom name="marker_plate" type="box" size="0.002 0.09974999999999999 0.09974999999999999"
+            material="aruco" contype="0" conaffinity="0"/>
+    </body>
+
+    <!-- Robot (TurtleBot3 Burger proportions) -->
+    <body name="base_link" pos="0.5 0.5 0.0">
+      <freejoint name="base_free"/>
+      <inertial pos="-0.02 0 0.06" mass="1.0" diaginertia="0.008 0.008 0.006"/>
+      <geom name="chassis" type="box" pos="-0.02 0 0.07" size="0.07 0.07 0.05" material="body"/>
+      <geom name="caster" type="sphere" pos="-0.08 0 0.01" size="0.01" condim="1" priority="1" friction="0 0 0"/>
+
+      <body name="wheel_left" pos="0 0.08 0.033">
+        <joint name="wheel_left_joint" type="hinge" axis="0 1 0" damping="0.001"/>
+        <geom type="cylinder" size="0.033 0.009" euler="1.5708 0 0" material="wheel" contype="0" conaffinity="0"/>
+        <geom type="sphere" size="0.033" friction="1.0 0.005 0.0001" rgba="0 0 0 0" mass="0.05"/>
+      </body>
+      <body name="wheel_right" pos="0 -0.08 0.033">
+        <joint name="wheel_right_joint" type="hinge" axis="0 1 0" damping="0.001"/>
+        <geom type="cylinder" size="0.033 0.009" euler="1.5708 0 0" material="wheel" contype="0" conaffinity="0"/>
+        <geom type="sphere" size="0.033" friction="1.0 0.005 0.0001" rgba="0 0 0 0" mass="0.05"/>
+      </body>
+
+      <body name="lidar" pos="-0.02 0 0.18">
+        <geom name="lidar_housing" type="cylinder" size="0.035 0.02" rgba="0.3 0.3 0.3 1" contype="0" conaffinity="0"/>
+          <site name="lidar_0" pos="0 0 0" size="0.002" zaxis="1.000000 0.000000 0" rgba="1 0 0 0"/>
+          <site name="lidar_1" pos="0 0 0" size="0.002" zaxis="0.996195 0.087156 0" rgba="1 0 0 0"/>
+          <site name="lidar_2" pos="0 0 0" size="0.002" zaxis="0.984808 0.173648 0" rgba="1 0 0 0"/>
+          <site name="lidar_3" pos="0 0 0" size="0.002" zaxis="0.965926 0.258819 0" rgba="1 0 0 0"/>
+          <site name="lidar_4" pos="0 0 0" size="0.002" zaxis="0.939693 0.342020 0" rgba="1 0 0 0"/>
+          <site name="lidar_5" pos="0 0 0" size="0.002" zaxis="0.906308 0.422618 0" rgba="1 0 0 0"/>
+          <site name="lidar_6" pos="0 0 0" size="0.002" zaxis="0.866025 0.500000 0" rgba="1 0 0 0"/>
+          <site name="lidar_7" pos="0 0 0" size="0.002" zaxis="0.819152 0.573576 0" rgba="1 0 0 0"/>
+          <site name="lidar_8" pos="0 0 0" size="0.002" zaxis="0.766044 0.642788 0" rgba="1 0 0 0"/>
+          <site name="lidar_9" pos="0 0 0" size="0.002" zaxis="0.707107 0.707107 0" rgba="1 0 0 0"/>
+          <site name="lidar_10" pos="0 0 0" size="0.002" zaxis="0.642788 0.766044 0" rgba="1 0 0 0"/>
+          <site name="lidar_11" pos="0 0 0" size="0.002" zaxis="0.573576 0.819152 0" rgba="1 0 0 0"/>
+          <site name="lidar_12" pos="0 0 0" size="0.002" zaxis="0.500000 0.866025 0" rgba="1 0 0 0"/>
+          <site name="lidar_13" pos="0 0 0" size="0.002" zaxis="0.422618 0.906308 0" rgba="1 0 0 0"/>
+          <site name="lidar_14" pos="0 0 0" size="0.002" zaxis="0.342020 0.939693 0" rgba="1 0 0 0"/>
+          <site name="lidar_15" pos="0 0 0" size="0.002" zaxis="0.258819 0.965926 0" rgba="1 0 0 0"/>
+          <site name="lidar_16" pos="0 0 0" size="0.002" zaxis="0.173648 0.984808 0" rgba="1 0 0 0"/>
+          <site name="lidar_17" pos="0 0 0" size="0.002" zaxis="0.087156 0.996195 0" rgba="1 0 0 0"/>
+          <site name="lidar_18" pos="0 0 0" size="0.002" zaxis="0.000000 1.000000 0" rgba="1 0 0 0"/>
+          <site name="lidar_19" pos="0 0 0" size="0.002" zaxis="-0.087156 0.996195 0" rgba="1 0 0 0"/>
+          <site name="lidar_20" pos="0 0 0" size="0.002" zaxis="-0.173648 0.984808 0" rgba="1 0 0 0"/>
+          <site name="lidar_21" pos="0 0 0" size="0.002" zaxis="-0.258819 0.965926 0" rgba="1 0 0 0"/>
+          <site name="lidar_22" pos="0 0 0" size="0.002" zaxis="-0.342020 0.939693 0" rgba="1 0 0 0"/>
+          <site name="lidar_23" pos="0 0 0" size="0.002" zaxis="-0.422618 0.906308 0" rgba="1 0 0 0"/>
+          <site name="lidar_24" pos="0 0 0" size="0.002" zaxis="-0.500000 0.866025 0" rgba="1 0 0 0"/>
+          <site name="lidar_25" pos="0 0 0" size="0.002" zaxis="-0.573576 0.819152 0" rgba="1 0 0 0"/>
+          <site name="lidar_26" pos="0 0 0" size="0.002" zaxis="-0.642788 0.766044 0" rgba="1 0 0 0"/>
+          <site name="lidar_27" pos="0 0 0" size="0.002" zaxis="-0.707107 0.707107 0" rgba="1 0 0 0"/>
+          <site name="lidar_28" pos="0 0 0" size="0.002" zaxis="-0.766044 0.642788 0" rgba="1 0 0 0"/>
+          <site name="lidar_29" pos="0 0 0" size="0.002" zaxis="-0.819152 0.573576 0" rgba="1 0 0 0"/>
+          <site name="lidar_30" pos="0 0 0" size="0.002" zaxis="-0.866025 0.500000 0" rgba="1 0 0 0"/>
+          <site name="lidar_31" pos="0 0 0" size="0.002" zaxis="-0.906308 0.422618 0" rgba="1 0 0 0"/>
+          <site name="lidar_32" pos="0 0 0" size="0.002" zaxis="-0.939693 0.342020 0" rgba="1 0 0 0"/>
+          <site name="lidar_33" pos="0 0 0" size="0.002" zaxis="-0.965926 0.258819 0" rgba="1 0 0 0"/>
+          <site name="lidar_34" pos="0 0 0" size="0.002" zaxis="-0.984808 0.173648 0" rgba="1 0 0 0"/>
+          <site name="lidar_35" pos="0 0 0" size="0.002" zaxis="-0.996195 0.087156 0" rgba="1 0 0 0"/>
+          <site name="lidar_36" pos="0 0 0" size="0.002" zaxis="-1.000000 0.000000 0" rgba="1 0 0 0"/>
+          <site name="lidar_37" pos="0 0 0" size="0.002" zaxis="-0.996195 -0.087156 0" rgba="1 0 0 0"/>
+          <site name="lidar_38" pos="0 0 0" size="0.002" zaxis="-0.984808 -0.173648 0" rgba="1 0 0 0"/>
+          <site name="lidar_39" pos="0 0 0" size="0.002" zaxis="-0.965926 -0.258819 0" rgba="1 0 0 0"/>
+          <site name="lidar_40" pos="0 0 0" size="0.002" zaxis="-0.939693 -0.342020 0" rgba="1 0 0 0"/>
+          <site name="lidar_41" pos="0 0 0" size="0.002" zaxis="-0.906308 -0.422618 0" rgba="1 0 0 0"/>
+          <site name="lidar_42" pos="0 0 0" size="0.002" zaxis="-0.866025 -0.500000 0" rgba="1 0 0 0"/>
+          <site name="lidar_43" pos="0 0 0" size="0.002" zaxis="-0.819152 -0.573576 0" rgba="1 0 0 0"/>
+          <site name="lidar_44" pos="0 0 0" size="0.002" zaxis="-0.766044 -0.642788 0" rgba="1 0 0 0"/>
+          <site name="lidar_45" pos="0 0 0" size="0.002" zaxis="-0.707107 -0.707107 0" rgba="1 0 0 0"/>
+          <site name="lidar_46" pos="0 0 0" size="0.002" zaxis="-0.642788 -0.766044 0" rgba="1 0 0 0"/>
+          <site name="lidar_47" pos="0 0 0" size="0.002" zaxis="-0.573576 -0.819152 0" rgba="1 0 0 0"/>
+          <site name="lidar_48" pos="0 0 0" size="0.002" zaxis="-0.500000 -0.866025 0" rgba="1 0 0 0"/>
+          <site name="lidar_49" pos="0 0 0" size="0.002" zaxis="-0.422618 -0.906308 0" rgba="1 0 0 0"/>
+          <site name="lidar_50" pos="0 0 0" size="0.002" zaxis="-0.342020 -0.939693 0" rgba="1 0 0 0"/>
+          <site name="lidar_51" pos="0 0 0" size="0.002" zaxis="-0.258819 -0.965926 0" rgba="1 0 0 0"/>
+          <site name="lidar_52" pos="0 0 0" size="0.002" zaxis="-0.173648 -0.984808 0" rgba="1 0 0 0"/>
+          <site name="lidar_53" pos="0 0 0" size="0.002" zaxis="-0.087156 -0.996195 0" rgba="1 0 0 0"/>
+          <site name="lidar_54" pos="0 0 0" size="0.002" zaxis="-0.000000 -1.000000 0" rgba="1 0 0 0"/>
+          <site name="lidar_55" pos="0 0 0" size="0.002" zaxis="0.087156 -0.996195 0" rgba="1 0 0 0"/>
+          <site name="lidar_56" pos="0 0 0" size="0.002" zaxis="0.173648 -0.984808 0" rgba="1 0 0 0"/>
+          <site name="lidar_57" pos="0 0 0" size="0.002" zaxis="0.258819 -0.965926 0" rgba="1 0 0 0"/>
+          <site name="lidar_58" pos="0 0 0" size="0.002" zaxis="0.342020 -0.939693 0" rgba="1 0 0 0"/>
+          <site name="lidar_59" pos="0 0 0" size="0.002" zaxis="0.422618 -0.906308 0" rgba="1 0 0 0"/>
+          <site name="lidar_60" pos="0 0 0" size="0.002" zaxis="0.500000 -0.866025 0" rgba="1 0 0 0"/>
+          <site name="lidar_61" pos="0 0 0" size="0.002" zaxis="0.573576 -0.819152 0" rgba="1 0 0 0"/>
+          <site name="lidar_62" pos="0 0 0" size="0.002" zaxis="0.642788 -0.766044 0" rgba="1 0 0 0"/>
+          <site name="lidar_63" pos="0 0 0" size="0.002" zaxis="0.707107 -0.707107 0" rgba="1 0 0 0"/>
+          <site name="lidar_64" pos="0 0 0" size="0.002" zaxis="0.766044 -0.642788 0" rgba="1 0 0 0"/>
+          <site name="lidar_65" pos="0 0 0" size="0.002" zaxis="0.819152 -0.573576 0" rgba="1 0 0 0"/>
+          <site name="lidar_66" pos="0 0 0" size="0.002" zaxis="0.866025 -0.500000 0" rgba="1 0 0 0"/>
+          <site name="lidar_67" pos="0 0 0" size="0.002" zaxis="0.906308 -0.422618 0" rgba="1 0 0 0"/>
+          <site name="lidar_68" pos="0 0 0" size="0.002" zaxis="0.939693 -0.342020 0" rgba="1 0 0 0"/>
+          <site name="lidar_69" pos="0 0 0" size="0.002" zaxis="0.965926 -0.258819 0" rgba="1 0 0 0"/>
+          <site name="lidar_70" pos="0 0 0" size="0.002" zaxis="0.984808 -0.173648 0" rgba="1 0 0 0"/>
+          <site name="lidar_71" pos="0 0 0" size="0.002" zaxis="0.996195 -0.087156 0" rgba="1 0 0 0"/>
+      </body>
+
+      <!-- MuJoCo cameras look along -z; this xyaxes makes it look along base +x -->
+      <camera name="front_camera" pos="0.07 0 0.12" xyaxes="0 -1 0 0 0 1" fovy="60.0"/>
+    </body>
+  </worldbody>
+
+  <actuator>
+    <velocity name="motor_left" joint="wheel_left_joint" kv="0.2" forcelimited="true" forcerange="-0.05 0.05" ctrlrange="-8.000 8.000"/>
+    <velocity name="motor_right" joint="wheel_right_joint" kv="0.2" forcelimited="true" forcerange="-0.05 0.05" ctrlrange="-8.000 8.000"/>
+  </actuator>
+
+  <sensor>
+    <jointpos name="encoder_left" joint="wheel_left_joint"/>
+    <jointpos name="encoder_right" joint="wheel_right_joint"/>
+    <rangefinder name="lidar_0" site="lidar_0" cutoff="3.5"/>
+    <rangefinder name="lidar_1" site="lidar_1" cutoff="3.5"/>
+    <rangefinder name="lidar_2" site="lidar_2" cutoff="3.5"/>
+    <rangefinder name="lidar_3" site="lidar_3" cutoff="3.5"/>
+    <rangefinder name="lidar_4" site="lidar_4" cutoff="3.5"/>
+    <rangefinder name="lidar_5" site="lidar_5" cutoff="3.5"/>
+    <rangefinder name="lidar_6" site="lidar_6" cutoff="3.5"/>
+    <rangefinder name="lidar_7" site="lidar_7" cutoff="3.5"/>
+    <rangefinder name="lidar_8" site="lidar_8" cutoff="3.5"/>
+    <rangefinder name="lidar_9" site="lidar_9" cutoff="3.5"/>
+    <rangefinder name="lidar_10" site="lidar_10" cutoff="3.5"/>
+    <rangefinder name="lidar_11" site="lidar_11" cutoff="3.5"/>
+    <rangefinder name="lidar_12" site="lidar_12" cutoff="3.5"/>
+    <rangefinder name="lidar_13" site="lidar_13" cutoff="3.5"/>
+    <rangefinder name="lidar_14" site="lidar_14" cutoff="3.5"/>
+    <rangefinder name="lidar_15" site="lidar_15" cutoff="3.5"/>
+    <rangefinder name="lidar_16" site="lidar_16" cutoff="3.5"/>
+    <rangefinder name="lidar_17" site="lidar_17" cutoff="3.5"/>
+    <rangefinder name="lidar_18" site="lidar_18" cutoff="3.5"/>
+    <rangefinder name="lidar_19" site="lidar_19" cutoff="3.5"/>
+    <rangefinder name="lidar_20" site="lidar_20" cutoff="3.5"/>
+    <rangefinder name="lidar_21" site="lidar_21" cutoff="3.5"/>
+    <rangefinder name="lidar_22" site="lidar_22" cutoff="3.5"/>
+    <rangefinder name="lidar_23" site="lidar_23" cutoff="3.5"/>
+    <rangefinder name="lidar_24" site="lidar_24" cutoff="3.5"/>
+    <rangefinder name="lidar_25" site="lidar_25" cutoff="3.5"/>
+    <rangefinder name="lidar_26" site="lidar_26" cutoff="3.5"/>
+    <rangefinder name="lidar_27" site="lidar_27" cutoff="3.5"/>
+    <rangefinder name="lidar_28" site="lidar_28" cutoff="3.5"/>
+    <rangefinder name="lidar_29" site="lidar_29" cutoff="3.5"/>
+    <rangefinder name="lidar_30" site="lidar_30" cutoff="3.5"/>
+    <rangefinder name="lidar_31" site="lidar_31" cutoff="3.5"/>
+    <rangefinder name="lidar_32" site="lidar_32" cutoff="3.5"/>
+    <rangefinder name="lidar_33" site="lidar_33" cutoff="3.5"/>
+    <rangefinder name="lidar_34" site="lidar_34" cutoff="3.5"/>
+    <rangefinder name="lidar_35" site="lidar_35" cutoff="3.5"/>
+    <rangefinder name="lidar_36" site="lidar_36" cutoff="3.5"/>
+    <rangefinder name="lidar_37" site="lidar_37" cutoff="3.5"/>
+    <rangefinder name="lidar_38" site="lidar_38" cutoff="3.5"/>
+    <rangefinder name="lidar_39" site="lidar_39" cutoff="3.5"/>
+    <rangefinder name="lidar_40" site="lidar_40" cutoff="3.5"/>
+    <rangefinder name="lidar_41" site="lidar_41" cutoff="3.5"/>
+    <rangefinder name="lidar_42" site="lidar_42" cutoff="3.5"/>
+    <rangefinder name="lidar_43" site="lidar_43" cutoff="3.5"/>
+    <rangefinder name="lidar_44" site="lidar_44" cutoff="3.5"/>
+    <rangefinder name="lidar_45" site="lidar_45" cutoff="3.5"/>
+    <rangefinder name="lidar_46" site="lidar_46" cutoff="3.5"/>
+    <rangefinder name="lidar_47" site="lidar_47" cutoff="3.5"/>
+    <rangefinder name="lidar_48" site="lidar_48" cutoff="3.5"/>
+    <rangefinder name="lidar_49" site="lidar_49" cutoff="3.5"/>
+    <rangefinder name="lidar_50" site="lidar_50" cutoff="3.5"/>
+    <rangefinder name="lidar_51" site="lidar_51" cutoff="3.5"/>
+    <rangefinder name="lidar_52" site="lidar_52" cutoff="3.5"/>
+    <rangefinder name="lidar_53" site="lidar_53" cutoff="3.5"/>
+    <rangefinder name="lidar_54" site="lidar_54" cutoff="3.5"/>
+    <rangefinder name="lidar_55" site="lidar_55" cutoff="3.5"/>
+    <rangefinder name="lidar_56" site="lidar_56" cutoff="3.5"/>
+    <rangefinder name="lidar_57" site="lidar_57" cutoff="3.5"/>
+    <rangefinder name="lidar_58" site="lidar_58" cutoff="3.5"/>
+    <rangefinder name="lidar_59" site="lidar_59" cutoff="3.5"/>
+    <rangefinder name="lidar_60" site="lidar_60" cutoff="3.5"/>
+    <rangefinder name="lidar_61" site="lidar_61" cutoff="3.5"/>
+    <rangefinder name="lidar_62" site="lidar_62" cutoff="3.5"/>
+    <rangefinder name="lidar_63" site="lidar_63" cutoff="3.5"/>
+    <rangefinder name="lidar_64" site="lidar_64" cutoff="3.5"/>
+    <rangefinder name="lidar_65" site="lidar_65" cutoff="3.5"/>
+    <rangefinder name="lidar_66" site="lidar_66" cutoff="3.5"/>
+    <rangefinder name="lidar_67" site="lidar_67" cutoff="3.5"/>
+    <rangefinder name="lidar_68" site="lidar_68" cutoff="3.5"/>
+    <rangefinder name="lidar_69" site="lidar_69" cutoff="3.5"/>
+    <rangefinder name="lidar_70" site="lidar_70" cutoff="3.5"/>
+    <rangefinder name="lidar_71" site="lidar_71" cutoff="3.5"/>
+  </sensor>
+</mujoco>

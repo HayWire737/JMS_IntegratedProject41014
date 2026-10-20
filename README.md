@@ -1,65 +1,80 @@
-# JMS_IntegratedProject41014
-High Distinctions all around! 
-Lets Gooooo
-yay
 # TurtleBot3 Visual Waypoint Navigation and ArUco Docking
 
 **41014 Sensors and Control in Mechatronics, Integrated Project, Track A**
 
 | | |
 |---|---|
-| **Group** | _Group 99_ |
-| **Members** | _Muhammad Suhaib Khan (1351525)_, Siale Smythe (24831226), Jaden Gambrill (26065197) |
+| **Group** | _Group XX_ |
+| **Members** | _Name (student ID)_, _Name (student ID)_, _Name (student ID)_, _Name (student ID)_ |
 | **Track** | A: mobile robot, visual waypoint navigation (MuJoCo) |
-| **Hardware** | _Simulation only_ |
+| **Hardware** | _Simulation only / Simulation + TurtleBot3 hardware_ |
 | **Demo video** | _[link, 5 min]_ |
 
 ---
 
 ## 1. Overview
 
-_The robot navigates a room with obstacles using 2D LiDAR, then visually docks to the ArUco-marked charging station. An EKF fuses wheel-encoder odometry with camera measurements of the marker (range/bearing or pose). A state-feedback/LQR tracker acts on the **estimated** state only._
+_One paragraph: the robot navigates a room with obstacles using 2D LiDAR, then visually docks to the ArUco-marked charging station. An EKF fuses wheel-encoder odometry with camera measurements of the marker (range/bearing or pose). A state-feedback/LQR tracker acts on the **estimated** state only._
 
 _Insert pipeline block diagram: sensors → EKF → planner → LQR → MuJoCo, with ground truth branching to the evaluator only._
 
 ## 2. Quick start
 
+Requires Python 3.10+.
+
 ```bash
 git clone https://github.com/<org>/<repo>.git
 cd <repo>
-python -m venv .venv && source .venv/bin/activate
+python -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 
-# Nominal run
-python scripts/run.py --config configs/nominal.yaml
-
-# Full evaluation (repeated trials, varied conditions)
-python scripts/evaluate.py --config configs/eval_matrix.yaml --trials 20
+python scripts/build_scene.py      # generate models/scene.xml from the config
+python -m pytest                   # model checks + ground-truth policy
+python scripts/sensor_check.py     # encoders, LiDAR, camera and ArUco working
+python scripts/dead_reckoning.py   # open-loop odometry drift vs truth
+python scripts/run.py              # closed loop: estimate -> waypoints -> dock
+python scripts/run.py --view       # same, with the 3D viewer (macOS: use mjpython)
 ```
+
+Figures are written to `results/`. All tunable values are in `configs/nominal.yaml`.
 
 Tested on: _OS, Python version, MuJoCo version_.
 
 ## 3. Repository layout
 
 ```
-configs/          YAML configs: noise, gains, Q/R, scenarios
-models/           MuJoCo XML for TurtleBot3, room, docking station
+configs/          YAML configs: robot, sensors, noise, obstacles, waypoints, gains
+models/           Generated MuJoCo scene and ArUco texture (rebuild with build_scene.py)
 src/
-  model/          State-space model, linearisation, observability/controllability
-  sensing/        Encoders, LiDAR, camera, ArUco detection, calibration
-  frames/         Transforms (world, odom, base_link, camera, marker)
-  estimation/     EKF: predict/update, Jacobians, consistency checks
-  planning/       Waypoints, obstacle avoidance from LiDAR
-  control/        LQR / state-feedback tracker
+  model/          Differential-drive model, linearisation, observability/controllability
+  sensing/        Wheel odometry, LiDAR, ArUco detection and range/bearing
+  frames/         SE(2) helpers and sensor mounts (world, base_link, camera, marker)
+  estimation/     Dead-reckoning baseline, EKF
+  planning/       Waypoint follower, obstacle avoidance from LiDAR
+  control/        Go-to-goal baseline, LQR tracker
   sim/            MuJoCo interface. Exposes sensor readings ONLY.
 evaluation/       Ground truth access, metrics, plots. NEVER imported by src/
-scripts/          Entry points: run, evaluate, calibrate, make_figures
-tests/            Unit tests, including a check that src/ never imports evaluation/
+scripts/          Entry points: build_scene, sensor_check, dead_reckoning, run
+tests/            Unit tests, including the ground-truth policy check
 results/          Logged runs and generated figures
 docs/             Images, frame diagram, derivations
 ```
 
-> **Ground truth policy.** Simulator ground truth is read only inside `evaluation/`. The controller receives the EKF estimate. `tests/test_no_ground_truth.py` fails if any module under `src/` imports from `evaluation/` or reads MuJoCo body poses directly.
+> **Ground truth policy.** Simulator ground truth is read only in `evaluation/ground_truth.py`. The planner and controller receive the estimate only. `tests/test_no_ground_truth.py` fails if any module under `src/` imports from `evaluation/` or reads the simulator's true pose or velocity.
+
+### Current status
+
+| Component | Status | Lead |
+|---|---|---|
+| Simulation scene, sensors | Working | _name_ |
+| Wheel odometry, dead reckoning | Working (baseline) | _name_ |
+| ArUco detection, range/bearing | Working, nominal intrinsics (calibration TODO) | _name_ |
+| Go-to-goal controller, waypoints | Working (baseline) | _name_ |
+| EKF | TODO: `src/estimation/ekf.py` | _name_ |
+| LQR tracker | TODO: `src/control/lqr.py` | _name_ |
+| LiDAR obstacle avoidance | TODO: `src/sensing/lidar.py` | _name_ |
+| Visual docking, evaluation matrix | TODO | _name_ |
 
 ## 4. Modelling (Part A)
 

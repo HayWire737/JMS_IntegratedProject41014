@@ -1,6 +1,8 @@
-numpy
-scipy
-matplotlib
-mujoco
-opencv-python
-control
+# Python 3.10 or newer
+mujoco>=3.1
+numpy>=1.24
+scipy>=1.10
+matplotlib>=3.7
+pyyaml>=6.0
+opencv-contrib-python>=4.8
+pytest>=7.0
