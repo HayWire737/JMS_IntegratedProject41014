@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **Group** | _Group 99_ |
-| **Members** | _Muhammad Suhaib Khan (1351525)_, _Jaden Gambrill(26065197)_, _Name (student ID)_, _Name (student ID)_ |
+| **Members** | _Muhammad Suhaib Khan (1351525)_, _Jaden Gambrill(26065197)_, _Siale Smythe (24831226), _Name (student ID)_ |
 | **Track** | A: mobile robot, visual waypoint navigation (MuJoCo) |
 | **Hardware** | _Simulation only_ |
 | **Demo video** | _[link, 5 min]_ |
@@ -27,7 +27,7 @@ git clone https://github.com/<org>/<repo>.git
 cd <repo>
 python -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+pip  install -r requirements.txt
 
 python scripts/build_scene.py      # generate models/scene.xml from the config
 python -m pytest                   # model checks + ground-truth policy
