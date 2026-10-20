@@ -154,7 +154,6 @@ _What the results do and do not support._
 | _Name_ | _Muhammad Suhaib Khan_ | _Part A & C_ |
 | _Name_ | _Jaden Gambrill_ | _Part B & sim enviroment_ |
 | _Name_ | _Siale Smythe_ | _Part D_ |
-| _Name_ | | |
 
 ## 12. Generative AI declaration
 
