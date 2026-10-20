@@ -151,7 +151,7 @@ _What the results do and do not support._
 
 | Member | Led | Contributed to |
 |---|---|---|
-| _Name_ | _e.g. EKF design and tuning_ | _e.g. evaluation scripts_ |
+| _Name_ | _Muhammad Suhaib Khan_ | _Part A & C_ |
 | _Name_ | | |
 | _Name_ | | |
 | _Name_ | | |
