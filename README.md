@@ -8,8 +8,8 @@ yay
 
 | | |
 |---|---|
-| **Group** | _Group XX_ |
-| **Members** | _Name (student ID)_, _Name (student ID)_, _Name (student ID)_, _Name (student ID)_ |
+| **Group** | _Group 99_ |
+| **Members** | _Muhammad Suhaib Khan (1351525)_, _Name (student ID)_, _Name (student ID)_, _Name (student ID)_ |
 | **Track** | A: mobile robot, visual waypoint navigation (MuJoCo) |
 | **Hardware** | _Simulation only / Simulation + TurtleBot3 hardware_ |
 | **Demo video** | _[link, 5 min]_ |
