@@ -9,7 +9,7 @@ yay
 | | |
 |---|---|
 | **Group** | _Group 99_ |
-| **Members** | _Muhammad Suhaib Khan (1351525)_, Siale Smythe (24831226), _Name (student ID)_, _Name (student ID)_ |
+| **Members** | _Muhammad Suhaib Khan (1351525)_, Siale Smythe (24831226), Jaden Gambrill (26065197) |
 | **Track** | A: mobile robot, visual waypoint navigation (MuJoCo) |
 | **Hardware** | _Simulation only_ |
 | **Demo video** | _[link, 5 min]_ |
