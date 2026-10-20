@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **Group** | _Group 99_ |
-| **Members** | _Muhammad Suhaib Khan (1351525)_, _Name (student ID)_, _Name (student ID)_, _Name (student ID)_ |
+| **Members** | _Muhammad Suhaib Khan (1351525)_, _Jaden Gambrill(26065197)_, _Name (student ID)_, _Name (student ID)_ |
 | **Track** | A: mobile robot, visual waypoint navigation (MuJoCo) |
 | **Hardware** | _Simulation only_ |
 | **Demo video** | _[link, 5 min]_ |
