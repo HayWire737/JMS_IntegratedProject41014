@@ -114,7 +114,11 @@ class TurtleBotSim:
         if self._renderer is None:
             self._renderer = mujoco.Renderer(self._model, *self._cam_size)
         self._renderer.update_scene(self._data, camera="front_camera", scene_option=self._scene_opt)
-        return self._renderer.render()
+        img = self._renderer.render()
+        sigma = self.cfg["noise"].get("camera_pixel_sigma", 0.0)
+        if sigma > 0:   # sensor noise, so marker measurements are not perfectly repeatable
+            img = np.clip(img + self.rng.normal(0, sigma, img.shape), 0, 255).astype(np.uint8)
+        return img
 
     def close(self):
         if self._renderer is not None:

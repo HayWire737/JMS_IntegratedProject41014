@@ -52,3 +52,31 @@ def trajectory_and_errors(log, cfg, out_path, title="Run"):
     fig.tight_layout()
     fig.savefig(out_path, dpi=120)
     plt.close(fig)
+
+
+def errors_with_bounds(log, out_path, title="Estimation error with 3-sigma bounds"):
+    """Each state error against +-3 sigma from the filter covariance.
+
+    A consistent filter keeps ~99 % of the error inside the bounds; bounds that
+    grow show uncertainty building up while the marker is out of view.
+    """
+    e = estimation_errors(log)
+    t = log["t"]
+    sig = np.sqrt(np.stack([log["P"][:, i, i] for i in range(3)], axis=1))
+    labels = ["x error [m]", "y error [m]", "heading error [rad]"]
+    fig, axes = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
+    seen = log["marker_seen"]
+    for i, ax in enumerate(axes):
+        ax.plot(t, e[:, i], color="#d62728", lw=1.5, label="error (estimate − truth)")
+        ax.fill_between(t, -3 * sig[:, i], 3 * sig[:, i], color="0.6", alpha=0.35, label="±3σ (filter)")
+        if seen.any():
+            ax.fill_between(t, 0, 1, where=seen, transform=ax.get_xaxis_transform(),
+                            color="#1f4fbf", alpha=0.08, label="marker in view")
+        ax.set_ylabel(labels[i])
+        ax.grid(alpha=0.3)
+    axes[0].legend(fontsize=8, loc="upper left", ncol=3)
+    axes[0].set_title(title)
+    axes[-1].set_xlabel("time [s]")
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=120)
+    plt.close(fig)

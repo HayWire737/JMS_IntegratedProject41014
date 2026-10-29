@@ -25,7 +25,13 @@ class MarkerMeasurement:
     range: float           # metres, base_link origin to marker centre (planar)
     bearing: float         # rad, angle of marker centre in base_link (left positive)
     p_base: np.ndarray     # marker centre in base_link [x, y, z]
+    yaw_base: float        # rad, direction of the marker face normal in base_link
     corners: np.ndarray    # 4x2 pixel corners, for drawing / pixel-noise studies
+
+    @property
+    def pose(self):
+        """Planar marker pose in base_link: [x, y, yaw]. Used by the pose EKF update."""
+        return np.array([self.p_base[0], self.p_base[1], self.yaw_base])
 
 
 class ArucoDetector:
@@ -34,7 +40,9 @@ class ArucoDetector:
         self.size = marker_cfg["size"]
         self.target_id = marker_cfg["id"]
         dictionary = cv2.aruco.getPredefinedDictionary(getattr(cv2.aruco, marker_cfg["dictionary"]))
-        self.detector = cv2.aruco.ArucoDetector(dictionary, cv2.aruco.DetectorParameters())
+        params = cv2.aruco.DetectorParameters()
+        params.cornerRefinementMethod = cv2.aruco.CORNER_REFINE_SUBPIX   # sub-pixel corners
+        self.detector = cv2.aruco.ArucoDetector(dictionary, params)
         if K is None:
             K, dist = nominal_intrinsics(cam_cfg)
         self.K, self.dist = K, dist
@@ -56,6 +64,10 @@ class ArucoDetector:
             if not ok:
                 return None
             p_base = camera_point_to_base(tvec.ravel(), self.cam_cfg)
+            # Marker z axis (out of the face, towards the camera) in the camera frame,
+            # rotated into base_link: base = (z_cam, -x_cam, -y_cam)
+            n_cam = cv2.Rodrigues(rvec)[0][:, 2]
+            yaw = float(np.arctan2(-n_cam[0], n_cam[2]))
             return MarkerMeasurement(int(i), float(np.hypot(p_base[0], p_base[1])),
-                                     float(np.arctan2(p_base[1], p_base[0])), p_base, img_pts)
+                                     float(np.arctan2(p_base[1], p_base[0])), p_base, yaw, img_pts)
         return None
