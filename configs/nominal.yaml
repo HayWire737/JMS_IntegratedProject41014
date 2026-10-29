@@ -33,6 +33,7 @@ noise:                     # imperfections the estimator does NOT know about
   encoder_tick_sigma: 1.0  # random tick error added per step, per wheel (random walk)
   wheel_scale_error: [0.002, -0.002]   # left/right effective radius error (fraction), causes drift
   lidar_sigma: 0.01
+  camera_pixel_sigma: 8.0  # Gaussian image noise (grey levels)
 
 marker:
   dictionary: DICT_4X4_50
@@ -55,3 +56,20 @@ controller:                # baseline polar P controller (to be replaced by LQR)
   k_alpha: 2.5
   goal_tol: 0.08
   stop_distance: 0.15      # LiDAR safety stop
+
+ekf:                       # Part C. Values come from the calibration scripts, see docs/part_A_C_notes.md
+  measurement_model: pose  # "pose" (default, fully observable) or "range_bearing" (rank-deficient)
+  initial_sigma: [0.02, 0.02, 0.02]   # start pose known to ~2 cm / ~1 degree
+  odom_q0: 8.601e-08       # m^2, per-wheel variance floor (scripts/calibrate_odometry_noise.py)
+  odom_k: 4.497e-07        # m, per-wheel variance per metre travelled (consistency-scaled)
+  marker_sigma:            # sigma(r) = a + b r^2, from scripts/calibrate_marker_noise.py
+    x: [0.00015, 0.00549]
+    y: [0.00018, 0.00112]
+    yaw: [0.00166, 0.02807]
+    range: [0.00016, 0.00561]
+    bearing: [0.00118, 0.00000]
+  R_scale: 1.0             # multiplies R; used for the R trade-off study
+  gate_probability: 0.99   # chi-square gate on the NIS; null disables gating
+  max_marker_range: 3.0    # m, upper end of the calibrated range
+  reset_after_rejections: 5   # consecutive gate rejections before divergence recovery (0 = never)
+  reset_inflation: 100.0   # P multiplier on recovery

@@ -18,9 +18,10 @@ class RunLogger:
     """Collects estimate, truth and commands each step for metrics and plots."""
 
     def __init__(self):
-        self.rows = {"t": [], "est": [], "truth": [], "cmd": [], "marker_seen": []}
+        self.rows = {"t": [], "est": [], "truth": [], "cmd": [], "marker_seen": [], "P": []}
 
-    def log(self, t, x_est, x_true, cmd, marker_seen):
+    def log(self, t, x_est, x_true, cmd, marker_seen, P=None):
+        self.rows["P"].append(np.full((3, 3), np.nan) if P is None else np.array(P, dtype=float))
         self.rows["t"].append(t)
         self.rows["est"].append(np.array(x_est, dtype=float))
         self.rows["truth"].append(np.array(x_true, dtype=float))
