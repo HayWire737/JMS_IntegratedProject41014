@@ -9,6 +9,8 @@ from dataclasses import dataclass
 from pathlib import Path
 import time
 
+import cv2
+
 import mujoco
 import numpy as np
 
@@ -29,7 +31,9 @@ class TurtleBotSim:
         self.cfg = cfg
         self._model = mujoco.MjModel.from_xml_path(str(ROOT / cfg["sim"]["model"]))
         self._data = mujoco.MjData(self._model)
-        self.rng = np.random.default_rng(cfg["sim"]["seed"] if seed is None else seed)
+        seed = cfg["sim"]["seed"] if seed is None else seed
+        self.rng = np.random.default_rng(seed)           
+        self._cam_rng = np.random.default_rng([seed, 1])
 
         self.r = cfg["robot"]["wheel_radius"]
         self.b = cfg["robot"]["wheel_base"]
@@ -114,10 +118,19 @@ class TurtleBotSim:
         if self._renderer is None:
             self._renderer = mujoco.Renderer(self._model, *self._cam_size)
         self._renderer.update_scene(self._data, camera="front_camera", scene_option=self._scene_opt)
-        img = self._renderer.render()
-        sigma = self.cfg["noise"].get("camera_pixel_sigma", 0.0)
-        if sigma > 0:   # sensor noise, so marker measurements are not perfectly repeatable
-            img = np.clip(img + self.rng.normal(0, sigma, img.shape), 0, 255).astype(np.uint8)
+        return self._corrupt_image(self._renderer.render())
+
+    def _corrupt_image(self, img):
+        """Camera imperfections the detector does not know about: lens blur, then pixel noise."""
+        noise = self.cfg["noise"]
+        blur = noise.get("camera_blur_px", 0)
+        sigma = noise.get("camera_pixel_sigma", 0.0)
+        if blur > 0:
+            k = 2 * blur + 1                              # Gaussian kernel size must be odd
+            img = cv2.GaussianBlur(img, (k, k), 0)
+        if sigma > 0:   # sensor noise
+            img = img.astype(np.float32) + self._cam_rng.normal(0.0, sigma, img.shape)
+            img = np.clip(img, 0, 255).astype(np.uint8)
         return img
 
     def close(self):
