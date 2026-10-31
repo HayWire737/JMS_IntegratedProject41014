@@ -56,3 +56,13 @@ def test_camera_noise_is_reproducible_and_present():
         sim.close()
     assert np.array_equal(frames[0], frames[2]), "same seed gave different images"
     assert np.abs(frames[0] - frames[1]).mean() > 1.0, "consecutive frames identical: no noise"
+
+def test_lidar_returns_do_not_change_encoders():
+    """How many beams hit something depends on where the robot is. That must not
+    change the encoder noise. Shortening the LiDAR range changes the hit count."""
+    long_cfg, short_cfg = _cfg(), _cfg()
+    short_cfg["lidar"]["max_range"] = 1.5
+    ticks_long, lidar_long = _drive(long_cfg)
+    ticks_short, lidar_short = _drive(short_cfg)
+    assert np.isfinite(lidar_long).sum() != np.isfinite(lidar_short).sum()   # the hit count did change
+    assert np.array_equal(ticks_long, ticks_short), "LiDAR returns changed the encoder readings"

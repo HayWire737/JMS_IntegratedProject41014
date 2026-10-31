@@ -1,7 +1,7 @@
 """2D LiDAR helpers."""
 import numpy as np
 
-from src.frames.se2 import wrap
+from src.frames.se2 import lidar_points_to_base, wrap
 
 
 def to_points(ranges, angles):
@@ -9,6 +9,9 @@ def to_points(ranges, angles):
     ok = np.isfinite(ranges)
     return np.column_stack([ranges[ok] * np.cos(angles[ok]), ranges[ok] * np.sin(angles[ok])])
 
+def scan_to_base(ranges, angles, lidar_cfg):
+    """Valid returns as an (N, 2) array of points in base_link (what a planner should use)."""
+    return lidar_points_to_base(to_points(ranges, angles), lidar_cfg)
 
 def min_range_in_sector(ranges, angles, centre, half_width):
     """Closest return within [centre - half_width, centre + half_width]."""

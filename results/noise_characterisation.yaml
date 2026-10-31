@@ -2,29 +2,29 @@ config: configs/nominal.yaml
 encoders:
   straight:
     steps: 240
-    ds_err_mean_m: 4.210904620192175e-05
-    ds_err_std_m: 4.6850042269563555e-05
-    dth_err_mean_rad: -0.0002821086603199574
-    dth_err_std_rad: 0.0004715704037467899
-    distance_scale_error: 0.0042663776575408985
-    heading_drift_rad_per_m: -0.02858250646705334
+    ds_err_mean_m: 3.883974964774044e-05
+    ds_err_std_m: 4.299021130779497e-05
+    dth_err_mean_rad: -0.0001858753343299361
+    dth_err_std_rad: 0.0004859357024100526
+    distance_scale_error: 0.003935141141098386
+    heading_drift_rad_per_m: -0.01883239932983814
     turn_scale_error: null
   spin:
     steps: 240
-    ds_err_mean_m: -4.368039541700304e-06
-    ds_err_std_m: 4.17823716397959e-05
-    dth_err_mean_rad: 0.0001529887326758961
-    dth_err_std_rad: 0.0005539724176264815
+    ds_err_mean_m: -7.531874916714441e-06
+    ds_err_std_m: 3.9932903975450704e-05
+    dth_err_mean_rad: 0.0002505403234054867
+    dth_err_std_rad: 0.0005548674436002787
     distance_scale_error: null
     heading_drift_rad_per_m: null
-    turn_scale_error: 0.003091538977637809
+    turn_scale_error: 0.005062824965802459
 lidar:
   scans: 200
-  beams_with_returns: 72
-  range_sigma_m: 0.009982094540469949
-  range_bias_m: 0.00014631492819473321
-  per_beam_sigma_min_m: 0.008975326867802138
-  per_beam_sigma_max_m: 0.011020434012954985
+  beams_with_returns: 59
+  range_sigma_m: 0.009977442779000404
+  range_bias_m: 0.00022730334050162748
+  per_beam_sigma_min_m: 0.00880193888442373
+  per_beam_sigma_max_m: 0.011062554707409229
 camera:
   frames: 621
   detected: 588
