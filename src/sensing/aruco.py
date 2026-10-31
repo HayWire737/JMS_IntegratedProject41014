@@ -8,15 +8,28 @@ from src.frames.se2 import camera_point_to_base
 
 
 def nominal_intrinsics(cam_cfg):
-    """Pinhole intrinsics implied by the simulated camera's vertical field of view.
+    """Ideal pinhole intrinsics implied by the simulated camera's vertical field of view.
 
-    TODO (Part B): replace with values from a proper calibration
-    (e.g. cv2.calibrateCamera on rendered checkerboard images) and compare.
+    OpenCV puts pixel CENTRES at integer coordinates, so the centre of a W x H
+    image is ((W - 1) / 2, (H - 1) / 2), not (W / 2, H / 2). Using W / 2 shifts
+    every bearing by half a pixel (0.07 deg here).
     """
     h, w = cam_cfg["height"], cam_cfg["width"]
     f = (h / 2) / np.tan(np.radians(cam_cfg["fovy_deg"]) / 2)
-    K = np.array([[f, 0, w / 2], [0, f, h / 2], [0, 0, 1]])
+    K = np.array([[f, 0, (w - 1) / 2], [0, f, (h - 1) / 2], [0, 0, 1]])
     return K, np.zeros(5)
+
+
+def camera_intrinsics(cam_cfg):
+    """Calibrated intrinsics from the config (camera.intrinsics), or nominal if absent.
+
+    The calibrated values come from scripts/calibrate_camera.py.
+    """
+    cal = cam_cfg.get("intrinsics")
+    if cal is None:
+        return nominal_intrinsics(cam_cfg)
+    K = np.array([[cal["fx"], 0, cal["cx"]], [0, cal["fy"], cal["cy"]], [0, 0, 1]], dtype=float)
+    return K, np.array(cal.get("dist", [0, 0, 0, 0, 0]), dtype=float)
 
 
 @dataclass
@@ -45,7 +58,7 @@ class ArucoDetector:
         params.minDistanceToBorder = 0
         self.detector = cv2.aruco.ArucoDetector(dictionary, params)
         if K is None:
-            K, dist = nominal_intrinsics(cam_cfg)
+            K, dist = camera_intrinsics(cam_cfg)
         self.K, self.dist = K, dist
         s = self.size / 2   # marker corners in the marker frame (OpenCV order)
         self.obj_pts = np.array([[-s, s, 0], [s, s, 0], [s, -s, 0], [-s, -s, 0]], dtype=np.float64)
