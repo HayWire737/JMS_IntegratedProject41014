@@ -32,8 +32,9 @@ class TurtleBotSim:
         self._model = mujoco.MjModel.from_xml_path(str(ROOT / cfg["sim"]["model"]))
         self._data = mujoco.MjData(self._model)
         seed = cfg["sim"]["seed"] if seed is None else seed
-        self.rng = np.random.default_rng(seed)           
+        self.rng = np.random.default_rng(seed)            # encoders
         self._cam_rng = np.random.default_rng([seed, 1])
+        self._lidar_rng = np.random.default_rng([seed, 2])
 
         self.r = cfg["robot"]["wheel_radius"]
         self.b = cfg["robot"]["wheel_base"]
@@ -104,8 +105,8 @@ class TurtleBotSim:
         ticks = np.round(angles * scale / (2 * np.pi) * self.ticks_per_rev + self._tick_noise)
 
         ranges = self._data.sensordata[self._lidar_adr].copy()
-        hit = ranges >= 0
-        ranges[hit] += self.rng.normal(0, noise["lidar_sigma"], hit.sum())
+        hit = (ranges >= 0) & (ranges < self.cfg["lidar"]["max_range"])
+        ranges[hit] += self._lidar_rng.normal(0, noise["lidar_sigma"], ranges.size)[hit]
         ranges[~hit] = np.inf
 
         image = None

@@ -24,7 +24,8 @@ camera:                    # mount relative to base_link, and image settings
   width: 640
   height: 480
 
-lidar:
+lidar:                     # mount relative to base_link (scan plane parallel to the floor)
+  x: -0.02
   z: 0.18
   n_beams: 72              # 5 degree resolution
   max_range: 3.5
