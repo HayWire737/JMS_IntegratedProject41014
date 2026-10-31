@@ -138,7 +138,7 @@ def build(cfg):
         <geom type="sphere" size="{r}" friction="1.0 0.005 0.0001" rgba="0 0 0 0" mass="0.05"/>
       </body>
 
-        <body name="lidar" pos="{lid['x']} 0 {lid['z']}">
+      <body name="lidar" pos="{lid['x']} 0 {lid['z']}">
         <geom name="lidar_housing" type="cylinder" size="0.035 0.02" rgba="0.3 0.3 0.3 1" contype="0" conaffinity="0"/>
 {lidar_sites(cfg)}
       </body>
