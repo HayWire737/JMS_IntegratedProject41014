@@ -23,6 +23,12 @@ camera:                    # mount relative to base_link, and image settings
   fovy_deg: 60.0
   width: 640
   height: 480
+  intrinsics: 
+    fx: 415.31
+    fy: 415.33
+    cx: 319.30
+    cy: 239.54
+    dist: [-0.0014, 0.0031, -0.0001, -0.0002, -0.0023]
 
 lidar:                     # mount relative to base_link (scan plane parallel to the floor)
   x: -0.02
