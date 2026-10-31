@@ -1,23 +1,32 @@
 config: configs/nominal.yaml
 encoders:
   straight:
-    steps: 240
-    ds_err_mean_m: 3.883974964774044e-05
-    ds_err_std_m: 4.299021130779497e-05
-    dth_err_mean_rad: -0.0001858753343299361
-    dth_err_std_rad: 0.0004859357024100526
-    distance_scale_error: 0.003935141141098386
-    heading_drift_rad_per_m: -0.01883239932983814
-    turn_scale_error: null
+    seeds: 10
+    steps_per_run: 240
+    ds_err_std_m:
+      mean: 4.434618592188019e-05
+      std: 1.9065634587166988e-06
+    dth_err_std_rad:
+      mean: 0.00047988794652076576
+      std: 1.5454386399440342e-05
+    distance_scale_error:
+      mean: 0.003963990773175751
+      std: 0.00023307371440037543
+    heading_drift_rad_per_m:
+      mean: -0.023947866499088973
+      std: 0.003081257849717338
   spin:
-    steps: 240
-    ds_err_mean_m: -7.531874916714441e-06
-    ds_err_std_m: 3.9932903975450704e-05
-    dth_err_mean_rad: 0.0002505403234054867
-    dth_err_std_rad: 0.0005548674436002787
-    distance_scale_error: null
-    heading_drift_rad_per_m: null
-    turn_scale_error: 0.005062824965802459
+    seeds: 10
+    steps_per_run: 240
+    ds_err_std_m:
+      mean: 3.795727849518044e-05
+      std: 2.137837859514145e-06
+    dth_err_std_rad:
+      mean: 0.0005532525819812023
+      std: 1.9426395778123124e-05
+    turn_scale_error:
+      mean: 0.004045215171912054
+      std: 0.0006182084862314783
 lidar:
   scans: 200
   beams_with_returns: 59
@@ -27,15 +36,14 @@ lidar:
   per_beam_sigma_max_m: 0.011062554707409229
 camera:
   frames: 621
-  detected: 588
+  detected: 593
   missed_at_ranges_m:
   - 0.3
-  - 0.5
   - 3.5
   - 3.7
   max_detected_range_m: 4.3
-  range_err_vs_range_squared_k: 0.0068411198750733745
-  bearing_err_rms_rad: 0.001451578603234528
+  range_err_vs_range_squared_k: 0.006841094817247643
+  bearing_err_rms_rad: 0.0014548606634887699
   by_range:
     0.0-0.5m:
       n: 21
@@ -43,10 +51,10 @@ camera:
       range_err_rms_m: 0.0016004804724455346
       bearing_err_rms_rad: 0.003597724802686919
     0.5-1.0m:
-      n: 130
-      range_err_mean_m: -0.0006004907649246336
-      range_err_rms_m: 0.0009903172148041017
-      bearing_err_rms_rad: 0.001758437502843196
+      n: 135
+      range_err_mean_m: -0.0006188158954056781
+      range_err_rms_m: 0.000997895899851193
+      bearing_err_rms_rad: 0.0017599777195710165
     1.0-1.5m:
       n: 117
       range_err_mean_m: 0.0039037959387284733

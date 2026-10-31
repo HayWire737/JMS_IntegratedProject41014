@@ -55,28 +55,40 @@ def encoder_run(cfg, start, v, w, duration):
     sim.close()
     return np.array(rows)
 
-def characterise_encoders(cfg):
+def characterise_encoders(cfg, seeds=10):
+    """Straight-line and spin runs, repeated over several seeds.
 
-    runs = {
-        "straight": encoder_run(cfg, [0.5, 0.5, 0.0], 0.2, 0.0, 12.0),
-        "spin": encoder_run(cfg, [0.5, 0.5, 0.0], 0.0, 1.0, 12.0),
-    }
-    out = {}
-    for name, r in runs.items():
-        e_ds = r[:,0] - r[:,2]
-        e_dth = wrap(r[:,1] - r[:,3])
-        dist, turn = np.sum(np.abs(r[:,2])), np.sum(np.abs(r[:,3]))
-        out[name] = {
-            "steps": len(r),
-            "ds_err_mean_m": float(e_ds.mean()),
-            "ds_err_std_m": float(e_ds.std()),
-            "dth_err_mean_rad": float(e_dth.mean()),
-            "dth_err_std_rad": float(e_dth.std()),
-            "distance_scale_error": float(np.sum(r[:, 0]) / np.sum(r[:, 2]) - 1) if dist > 0.1 else None,
-            "heading_drift_rad_per_m": float(np.sum(e_dth) / dist) if dist > 0.1 else None,
-            "turn_scale_error": float(np.sum(r[:, 1]) / np.sum(r[:, 3]) - 1) if turn > 0.5 else None,
-        }
-    return out, runs
+    The tick noise is a random walk, so one 12 s run gives a noisy estimate of the
+    drift (it varied by about +-13% between seeds). Each statistic is therefore
+    reported as mean and spread over `seeds` independent runs.
+    """
+    out, first = {}, {}
+    for name, (v, w) in {"straight": (0.2, 0.0), "spin": (0.0, 1.0)}.items():
+        per_seed = []
+        for s in range(seeds):
+            c = copy.deepcopy(cfg)
+            c["sim"]["seed"] = cfg["sim"]["seed"] + s
+            r = encoder_run(c, [0.5, 0.5, 0.0], v, w, 12.0)
+            if s == 0:
+                first[name] = r                    # one run kept for the histograms
+            e_ds = r[:, 0] - r[:, 2]
+            e_dth = wrap(r[:, 1] - r[:, 3])
+            dist, turn = np.sum(np.abs(r[:, 2])), np.sum(np.abs(r[:, 3]))
+            per_seed.append({
+                "ds_err_std_m": e_ds.std(),
+                "dth_err_std_rad": e_dth.std(),
+                "distance_scale_error": np.sum(r[:, 0]) / np.sum(r[:, 2]) - 1 if dist > 0.1 else np.nan,
+                "heading_drift_rad_per_m": np.sum(e_dth) / dist if dist > 0.1 else np.nan,
+                "turn_scale_error": np.sum(r[:, 1]) / np.sum(r[:, 3]) - 1 if turn > 0.5 else np.nan,
+            })
+        stats = {"seeds": seeds, "steps_per_run": len(first[name])}
+        for key in per_seed[0]:
+            vals = np.array([p[key] for p in per_seed], dtype=float)
+            if np.all(np.isnan(vals)):
+                continue                           # e.g. distance scale is meaningless in a spin
+            stats[key] = {"mean": float(vals.mean()), "std": float(vals.std())}
+        out[name] = stats
+    return out, first
 
 """Here is where the lidar is"""
 
@@ -239,13 +251,14 @@ def print_block(title, d, indent="  "):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", default="configs/nominal.yaml")
+    ap.add_argument("--seeds", type=int, default=10, help="repeat the encoder runs over this many seeds")
     ap.add_argument("--part", choices=["all", "encoders", "lidar", "camera"], default="all")
     args = ap.parse_args()
     cfg = load_config(args.config)
 
     report, enc_runs, lidar_err, cam = {"config": args.config}, None, None, None
     if args.part in ("all", "encoders"):
-        report["encoders"], enc_runs = characterise_encoders(cfg)
+        report["encoders"], enc_runs = characterise_encoders(cfg, args.seeds)
         print_block("ENCODERS (per control step, dt = %.3f s)" % cfg["sim"]["control_dt"], report["encoders"])
     if args.part in ("all", "lidar"):
         report["lidar"], lidar_err = characterise_lidar(cfg)

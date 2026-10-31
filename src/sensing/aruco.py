@@ -42,6 +42,7 @@ class ArucoDetector:
         dictionary = cv2.aruco.getPredefinedDictionary(getattr(cv2.aruco, marker_cfg["dictionary"]))
         params = cv2.aruco.DetectorParameters()
         params.cornerRefinementMethod = cv2.aruco.CORNER_REFINE_SUBPIX   # sub-pixel corners
+        params.minDistanceToBorder = 0
         self.detector = cv2.aruco.ArucoDetector(dictionary, params)
         if K is None:
             K, dist = nominal_intrinsics(cam_cfg)

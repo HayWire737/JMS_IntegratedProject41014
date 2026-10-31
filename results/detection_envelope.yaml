@@ -1,0 +1,25 @@
+config: configs/nominal.yaml
+frames_per_pose: 5
+reliable_if_rate_at_least: 0.95
+head_on:
+  min_reliable_range_m: 0.25
+  max_reliable_range_m: 4.4
+max_reliable_view_angle_deg:
+  0.5m:
+    angle: 70.0
+    largest_tested: 70.0
+  1.0m:
+    angle: 60.0
+    largest_tested: 70.0
+  2.0m:
+    angle: 60.0
+    largest_tested: 60.0
+  3.0m:
+    angle: 20.0
+    largest_tested: 20.0
+max_reliable_bearing_deg:
+  0.3m: 15.0
+  0.5m: 24.0
+  1.0m: 30.0
+  2.0m: 34.0
+camera_horizontal_half_fov_deg: 37.6
