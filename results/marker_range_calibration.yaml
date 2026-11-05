@@ -1,0 +1,40 @@
+model: bias(d) = a2 d^2 + a3 d^3, d = camera-to-marker distance (m)
+range_correction:
+- -0.0010386199597077245
+- 0.0021324384317528717
+train_detections: 789
+test_detections: 475
+test_before:
+  0.3-1.0m:
+    n: 148
+    bias_mm: -0.6
+    rms_mm: 1.2
+  1.0-2.0m:
+    n: 172
+    bias_mm: 4.9
+    rms_mm: 7.0
+  2.0-3.0m:
+    n: 105
+    bias_mm: 33.9
+    rms_mm: 39.2
+  3.0-4.5m:
+    n: 50
+    bias_mm: 67.6
+    rms_mm: 98.3
+test_after:
+  0.3-1.0m:
+    n: 148
+    bias_mm: -1.0
+    rms_mm: 1.2
+  1.0-2.0m:
+    n: 172
+    bias_mm: 0.3
+    rms_mm: 4.5
+  2.0-3.0m:
+    n: 105
+    bias_mm: 7.7
+    rms_mm: 16.4
+  3.0-4.5m:
+    n: 50
+    bias_mm: -26.7
+    rms_mm: 63.7

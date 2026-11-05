@@ -42,51 +42,51 @@ camera:
   - 3.5
   - 3.7
   max_detected_range_m: 4.3
-  range_err_vs_range_squared_k: 0.0065830748402776595
-  bearing_err_rms_rad: 0.001231832812981334
+  range_err_vs_range_squared_k: 0.002979593797024912
+  bearing_err_rms_rad: 0.0012154504386003376
   by_range:
     0.0-0.5m:
       n: 21
-      range_err_mean_m: -0.0018051968755365517
-      range_err_rms_m: 0.0018248963005083755
-      bearing_err_rms_rad: 0.003647153300048721
+      range_err_mean_m: -0.0017761744408006455
+      range_err_rms_m: 0.0017962240365666485
+      bearing_err_rms_rad: 0.0036509446758279693
     0.5-1.0m:
       n: 135
-      range_err_mean_m: -0.0011803707576513345
-      range_err_rms_m: 0.0013479347857846776
-      bearing_err_rms_rad: 0.0015639832563402066
+      range_err_mean_m: -0.001382857122498553
+      range_err_rms_m: 0.0014832927121236129
+      bearing_err_rms_rad: 0.0015629558303898547
     1.0-1.5m:
       n: 117
-      range_err_mean_m: 0.002837135974160487
-      range_err_rms_m: 0.004718967130989516
-      bearing_err_rms_rad: 0.0009763101865876764
+      range_err_mean_m: 0.0004551208584770698
+      range_err_rms_m: 0.003102725022984884
+      bearing_err_rms_rad: 0.000966975022138819
     1.5-2.0m:
       n: 72
-      range_err_mean_m: 0.007853313161386164
-      range_err_rms_m: 0.009321846778814471
-      bearing_err_rms_rad: 0.000815534687151846
+      range_err_mean_m: 0.00035798456991237293
+      range_err_rms_m: 0.004753234415080798
+      bearing_err_rms_rad: 0.0007966365900934426
     2.0-2.5m:
       n: 54
-      range_err_mean_m: 0.02656514337237847
-      range_err_rms_m: 0.031173088197051918
-      bearing_err_rms_rad: 0.0008829105338585135
+      range_err_mean_m: 0.009822875572092925
+      range_err_rms_m: 0.01822594674196533
+      bearing_err_rms_rad: 0.000848433738910297
     2.5-3.0m:
       n: 72
-      range_err_mean_m: 0.026201336183626887
-      range_err_rms_m: 0.030898683258023675
-      bearing_err_rms_rad: 0.0006837141284223295
+      range_err_mean_m: -0.005917149862575349
+      range_err_rms_m: 0.01683551359697805
+      bearing_err_rms_rad: 0.0006438471167981353
     3.0-3.5m:
       n: 36
-      range_err_mean_m: 0.0725794845347143
-      range_err_rms_m: 0.08512413751459913
-      bearing_err_rms_rad: 0.0004641115540201149
+      range_err_mean_m: 0.012872701515086892
+      range_err_rms_m: 0.04390172342917343
+      bearing_err_rms_rad: 0.0004228797101132554
     3.5-4.0m:
       n: 50
-      range_err_mean_m: 0.09316102828818723
-      range_err_rms_m: 0.10922595307585377
-      bearing_err_rms_rad: 0.0007514475766196067
+      range_err_mean_m: -0.0036861364766717485
+      range_err_rms_m: 0.05189469366830873
+      bearing_err_rms_rad: 0.0006652055628417229
     4.0-4.5m:
       n: 36
-      range_err_mean_m: 0.13614258667049695
-      range_err_rms_m: 0.15621680974903698
-      bearing_err_rms_rad: 0.0007288456326378971
+      range_err_mean_m: -0.011100950684400769
+      range_err_rms_m: 0.06834621603710125
+      bearing_err_rms_rad: 0.0006231000144309274
