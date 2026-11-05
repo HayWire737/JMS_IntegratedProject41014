@@ -73,14 +73,14 @@ docs/             Images, frame diagram, derivations
 | Simulation scene, sensors | Working: independent noise stream per sensor, LiDAR max-range fix, optional camera blur | Jaden |
 | ArUco detection, range/bearing | Working: calibrated intrinsics, range-bias correction, edge-dropout fix | Jaden |
 | Sensor noise characterisation, frames | Done | Jaden |
-| Wheel odometry, dead reckoning | Working (baseline) | _name_ |
-| Model, Jacobians, controllability/observability | Done | _name_ |
-| Go-to-goal controller, waypoints | Working (baseline) | _name_ |
-| EKF (pose model, calibrated Q/R, gating) | Done | _name_ |
+| Wheel odometry, dead reckoning | Working (baseline) | Muhammad |
+| Model, Jacobians, controllability/observability | Done | Muhammad |
+| Go-to-goal controller, waypoints | Working (baseline) | Muhammad |
+| EKF (pose model, calibrated Q/R, gating) | Done | Muhammad |
 | LQR tracker | Working: `src/control/lqr.py` | Siale |
-| LiDAR obstacle avoidance | Working: `src/planning/avoidance.py` | _name_ |
+| LiDAR obstacle avoidance | Working: `src/planning/avoidance.py` | Jaden |
 | Visual docking | Working: `src/control/docking.py`, 5/5 seeds | Siale |
-| Evaluation matrix | TODO | _name_ |
+| Evaluation matrix | TODO | Jaden |
 
 ## 4. Modelling (Part A)
 
