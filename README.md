@@ -69,10 +69,11 @@ docs/             Images, frame diagram, derivations
 
 | Component | Status | Lead |
 |---|---|---|
-| Simulation scene, sensors | Working | _name_ |
+| Simulation scene, sensors | Working: independent noise stream per sensor, LiDAR max-range fix, optional camera blur | Jaden |
+| ArUco detection, range/bearing | Working: calibrated intrinsics, range-bias correction, edge-dropout fix | Jaden |
+| Sensor noise characterisation, frames | Done | Jaden |
 | Wheel odometry, dead reckoning | Working (baseline) | _name_ |
 | Model, Jacobians, controllability/observability | Done | _name_ |
-| ArUco detection, range/bearing | Working, nominal intrinsics (calibration TODO) | _name_ |
 | Go-to-goal controller, waypoints | Working (baseline) | _name_ |
 | EKF (pose model, calibrated Q/R, gating) | Done | _name_ |
 | LQR tracker | TODO: `src/control/lqr.py` | _name_ |
@@ -107,11 +108,85 @@ Verified experimentally: starting 0.15 rad wrong along the rotation direction, t
 
 ## 5. Sensing and calibration (Part B)
 
-- **Sensors:** _encoders (rate, resolution), LiDAR (range, FOV, rate), camera (resolution, FOV, rate)_
-- **Camera intrinsics:** _how obtained, values_
-- **Noise characterisation:** _method (e.g. static logging), measured σ for each sensor_
-- **ArUco detection:** _dictionary, marker size, detection range limits_
-- **Frame diagram:** _figure of world, odom, base_link, camera, marker frames, with transform values_
+All Part B numbers below are produced by the scripts listed in Quick start and committed in `results/`. Ground truth is used only in these offline calibration scripts, the way a real lab would survey a calibration target; nothing under `src/` reads it.
+
+### Sensors
+
+| Sensor | Model in simulation | Rate | Resolution / range |
+|---|---|---|---|
+| Wheel encoders | Joint angle → ticks, random-walk tick noise (σ = 1 tick/step), wheel radius error ±0.2 % (unknown to the estimator) | 20 Hz | 4096 ticks/rev = 0.051 mm of wheel travel per tick |
+| 2D LiDAR | 72 MuJoCo rangefinders in the scan plane, Gaussian range noise σ = 1 cm | 20 Hz | 5° beam spacing, 3.5 m max range |
+| Camera | MuJoCo render, Gaussian pixel noise σ = 8 grey levels (optional blur) | 5 Hz | 640 × 480, 60° vertical / 75.2° horizontal FOV |
+| ArUco marker | `DICT_4X4_50`, id 0, 0.15 m black square on the dock, centre 0.12 m high | | |
+
+### Frames
+
+![Frame diagram](docs/figures/frame_diagram.png)
+
+The chain from measurement to control is: **camera** (OpenCV optical frame: z forward, x right, y down) → **base_link** (fixed mount: 0.07 m forward, 0.12 m up; z_cam = x_base, x_cam = −y_base, y_cam = −z_base) → **world** (through the EKF estimate [x, y, θ]), compared with the known **marker** pose (4.84, 2.0) m facing 180°. LiDAR points go **lidar** → **base_link** (0.02 m behind, axes parallel) with `scan_to_base()`. There is no separate odom frame: the start pose is known, so odometry is integrated directly in the world frame and the EKF corrects that estimate.
+
+All mounts live in `configs/nominal.yaml`; `tests/test_scene_matches_config` fails if the MuJoCo scene and the config disagree, and `tests/test_frames.py` checks the transforms end to end: a real LiDAR scan taken from a known pose and pushed through lidar → base_link → world lands a median **5.3 mm** from the walls, against 12.2 mm if the 2 cm mount offset is ignored.
+
+### Noise characterisation (`scripts/characterise_noise.py`)
+
+| Sensor | Measured | Predicted from first principles |
+|---|---|---|
+| Encoder distance, per 0.05 s step | σ = 0.044 mm | one tick of wheel travel = 0.051 mm |
+| Encoder heading, per step | σ = 4.8 × 10⁻⁴ rad | √2 × 0.051 mm / 0.16 m = 4.5 × 10⁻⁴ rad |
+| Heading drift driving straight | **−0.024 ± 0.003 rad/m** (10 seeds) | **−0.025 rad/m** from the ±0.2 % wheel radius error |
+| Turn scale error (spin on the spot) | +0.40 ± 0.06 % | not in the config: a contact effect of the simulated wheels |
+| LiDAR range | σ = 9.98 mm, bias 0.2 mm, every beam within 8.8–11.1 mm | 10 mm configured |
+| Camera range (after correction) | RMS 1.5 mm below 1 m, 3–5 mm at 1–2 m, 17–18 mm at 2–3 m | grows with distance (see below) |
+| Camera bearing | RMS 0.02–0.06° from 1 m out (0.09° at 0.5–1 m) | 1 px = 0.14° at f = 415 px |
+
+Encoder drift is a random walk, so a single 12 s run can land anywhere in roughly ±13 % of the true value; every encoder figure is therefore the mean ± spread over 10 seeds. The heading drift is a **bias**, not random noise, so the EKF's Q has to be inflated above the per-step σ to cover it (Part C).
+
+### Camera intrinsics (`scripts/calibrate_camera.py`)
+
+The camera is calibrated the way a real one would be: a 9 × 6 checkerboard (40 mm squares) is shown to a camera identical to the robot's in 160 random positions and tilts, with the camera noise applied. Views where the board is not fully visible are skipped, views whose fit is worse than 3× the median are rejected, and `cv2.calibrateCamera` is run on the rest.
+
+| Parameter | Calibrated (83 views, 0.093 px RMS) | Ideal pinhole | Previous nominal K |
+|---|---|---|---|
+| f_x, f_y (px) | 415.31 ± 0.21, 415.33 ± 0.21 | 415.69 | 415.69 |
+| c_x (px) | **319.30 ± 0.21** | 319.5 | **320.0** |
+| c_y (px) | **239.54 ± 0.19** | 239.5 | **240.0** |
+| Distortion k₁, k₂, k₃ | −0.001, 0.003, −0.002 | 0 | 0 |
+
+Focal length agrees with the ideal pinhole to 0.09 % and distortion is negligible, which confirms the pinhole model. The calibration also exposed a bug in the nominal intrinsics: OpenCV puts pixel centres at integer coordinates, so the centre of a 640 × 480 image is (319.5, 239.5), not (320, 240). The half-pixel error offset every bearing by **0.069°** (the constant offset `sensor_check.py` showed with the marker dead ahead). The detector now uses the calibrated values from the config.
+
+**Limit:** five independent calibrations gave c_x between 319.07 and 319.61, so a single calibration pins the principal point to about ±0.25 px, the same size as the error it corrected. The calibrated K halves the bearing bias rather than eliminating it.
+
+### Marker detection (`scripts/detection_envelope.py`)
+
+Detection rate over 5 noisy frames per pose ("reliable" = ≥ 95 %):
+
+| | Value | Used by |
+|---|---|---|
+| Closest reliable range, head-on | **0.25 m** | Docking stop distance (Part D) |
+| Furthest reliable range | 4.4 m (the whole room) | EKF cut-off at 3 m is set by accuracy, not detection |
+| Max bearing off image centre | 15° at 0.3 m, 24° at 0.5 m, 30° at 1 m, 34° at 2 m | Final-approach heading tolerance |
+| Max view angle off the marker normal | 70° at 0.5 m, 60° at 1–2 m | Approach directions that keep the dock visible |
+
+### Range bias correction (`scripts/calibrate_marker_range.py`)
+
+The marker always read too far away: ~1 mm at 1 m, +34 mm at 2–3 m, +68 mm beyond 3 m. The cause is not the intrinsics (it is identical with nominal or calibrated K) but where the marker's outer corners are located: the detected outline sits slightly inside the true edge, so the marker looks smaller and further away. Checkerboard corners are symmetric "X" corners and refine without bias; ArUco outer corners are "L" corners and do not. All four OpenCV corner-refinement methods were compared and none is unbiased (sub-pixel is the best; AprilTag over-corrects and loses 9 % of detections).
+
+The bias is fitted as **bias(d) = a₂d² + a₃d³** (d = camera-to-marker distance; d² from pinhole geometry, d³ because the corner offset itself grows with distance) on a grid of poses, then tested on **120 different random poses with different noise**:
+
+| Distance | Bias before → after | RMS before → after |
+|---|---|---|
+| 0.3–1 m | −0.6 → −1.0 mm | 1.2 → 1.2 mm |
+| 1–2 m | +4.9 → **+0.3 mm** | 7.0 → **4.5 mm** |
+| 2–3 m | +33.9 → **+7.7 mm** | 39.2 → **16.4 mm** |
+| 3–4.5 m | +67.6 → −26.7 mm | 98.3 → 63.7 mm |
+
+The correction scales the camera-to-marker vector, so bearings are unchanged. Within the EKF's 3 m cut-off the bias is essentially removed and what remains is frame-to-frame noise, which is what R should model. Beyond 3 m the scatter between poses dominates, which independently supports the 3 m cut-off. It does not change the nominal run, because the waypoint route only sees the marker at 0.5–2.1 m where the bias was already small; its value is in letting R shrink at 2–3 m.
+
+### Limitations
+
+- The simulated camera is an exact pinhole by construction, so the calibration validates the **method** and found a real convention bug, but there was no lens distortion to correct. A real camera would also need a distortion check.
+- The range correction depends on range only. The residual bias depends on view angle too (roughly 1.5–2× larger at 20° off the marker normal than head-on, beyond 2 m).
+- Characterisation and detection limits are for the nominal noise (σ = 8 grey levels, no blur). Blur (`camera_blur_px`) cuts long-range detection sharply; that is a Part E condition.
 
 ## 6. Estimation (Part C)
 
@@ -182,7 +257,15 @@ _e.g. R scaling vs. NEES and responsiveness; LQR weight ratio vs. control effort
 
 **Unobservable direction (model).** Range+bearing cannot correct initial error along the rotation about the marker (Part A); the pose measurement model fixes this.
 
-_Other components: add failures here._
+**Coupled sensor noise (simulation).** Turning on camera noise changed the odometry: heading drift went from −0.0286 to −0.0227 rad/m and turn scale error from 0.0031 to 0.0043, with nothing about the wheels changed. All sensors drew from one random generator, so every rendered frame (and later, every LiDAR beam that hit something) shifted the encoder noise; changing the controller would have changed the odometry too, confounding any comparison. Fix: one random stream per sensor. `tests/test_sim_noise.py` fails on the old code and passes now.
+
+**Phantom LiDAR obstacles (simulation).** MuJoCo's rangefinder `cutoff` clamps long beams to exactly 3.5 m instead of reporting no return, creating a ring of fake obstacles (13 of 72 beams at the start pose). Found by pushing a real scan through the frame chain: one point landed 607 mm from any surface. After dropping max-range returns the worst point is 23 mm away. Caught by `tests/test_frames.py`.
+
+**Marker dropouts near the image edge (sensing).** At close range the marker vanished for single degrees of rotation (e.g. 11° at 0.3 m) while fully visible mid-frame. OpenCV's default `minDistanceToBorder = 3 px` rejected candidates whose white border neared the image edge. Setting it to 0 removed every dropout: the usable bearing at 0.3 m rose from 10° to 15° and the closest reliable range fell from 0.30 to 0.25 m. Caught by `tests/test_aruco.py`.
+
+**Half-pixel principal point (sensing).** Every bearing was offset by 0.069°, traced by the checkerboard calibration to the nominal image centre (320, 240) instead of (319.5, 239.5). See Part B.
+
+**Marker range bias (sensing).** Range read up to 7 cm long beyond 3 m; traced to corner localisation rather than intrinsics, and corrected with a calibration validated on held-out poses. See Part B.
 
 ## 9. Hardware (optional)
 
@@ -197,7 +280,7 @@ _What the results do and do not support._
 | Member | Led | Contributed to |
 |---|---|---|
 | Muhammad Suhaib Khan (1351525) | Part A (modelling), Part C (EKF) | Project page, repository setup |
-| Jaden Gambrill (26065197) | Part B (sensing), simulation environment | |
+| Jaden Gambrill (26065197) | Part B (sensing): noise characterisation, camera calibration, range-bias correction, detection envelope, frames and frame diagram, sensing tests; simulation environment: independent sensor noise, LiDAR max-range fix, camera blur | Repository workflow (branch protection, reviews) |
 | Siale Smythe (24831226) | Part D (control) | |
 
 ## 12. Generative AI declaration
