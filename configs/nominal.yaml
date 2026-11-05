@@ -107,3 +107,19 @@ avoidance:                 # LiDAR obstacle avoidance, see src/planning/avoidanc
   detour_distance: 0.5     # how far out a detour waypoint is placed (m)
   detour_reached: 0.15     # a detour counts as reached within this (m)
   max_turn_deg: 120        # widest detour direction tried, each side of the goal
+
+docking:                   # visual docking after the last waypoint, see src/control/docking.py
+  enabled: true
+  stop_distance: 0.30      # target range, base_link origin to marker centre (m)
+  range_tol: 0.01          # stop once a fresh detection reads within this of stop_distance (m)
+  bearing_tol_deg: 10.0    # docked if the marker is then this close to the image centre
+  lost_timeout: 2.0        # time without a detection before searching (s)
+  search_delay: 0.5        # wait this long for a first frame before searching (s)
+  search_rate: 0.4         # in-place rotation rate while searching (rad/s)
+  max_time: 30.0           # docking gives up after this (s)
+  lqr:                     # overrides of controller.lqr for the approach
+    v_ref: 0.08
+    v_min: 0.02
+    slowdown_gain: 0.8
+  success_range: [0.25, 0.35]   # evaluation only: judged against ground truth in evaluation/
+  success_bearing_deg: 15.0

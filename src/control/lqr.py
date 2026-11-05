@@ -97,6 +97,12 @@ class LQRTracker:
         the robot is then not at the previous waypoint. History is kept."""
         self._goal = None
 
+    def start_from(self, point):
+        """Begin the next segment at `point` instead of the previous waypoint, so the
+        robot tracks the line from `point` to the next goal. Used by the docking
+        stage to follow the marker normal. History is kept."""
+        self._goal = np.array(point, dtype=float)[:2]
+
     # ------------------------------------------------------------------ gains
     def gain(self, v_r):
         """LQR gain K for reference speed v_r, cached on a 1 cm/s grid."""

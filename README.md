@@ -33,7 +33,8 @@ python scripts/build_scene.py      # generate models/scene.xml from the config
 python -m pytest                   # model checks + ground-truth policy
 python scripts/sensor_check.py     # encoders, LiDAR, camera and ArUco working
 python scripts/dead_reckoning.py   # open-loop odometry drift vs truth
-python scripts/run.py              # closed loop with the EKF (add --estimator dr for the baseline)
+python scripts/run.py              # closed loop with the EKF, then visual docking (--no-dock to stop at the last waypoint)
+python scripts/dock_study.py       # docking over 5 seeds, scored against ground truth
 python scripts/analyse_model.py    # Part A controllability/observability
 python scripts/ekf_study.py        # Part C repeated trials and R trade-off
 python scripts/run.py --view       # same, with the 3D viewer (macOS: use mjpython)
@@ -54,7 +55,7 @@ src/
   frames/         SE(2) helpers and sensor mounts (world, base_link, camera, marker)
   estimation/     Dead-reckoning baseline, EKF
   planning/       Waypoint follower, obstacle avoidance from LiDAR
-  control/        Go-to-goal baseline, LQR tracker
+  control/        Go-to-goal baseline, LQR tracker, visual docking
   sim/            MuJoCo interface. Exposes sensor readings ONLY.
 evaluation/       Ground truth access, metrics, plots. NEVER imported by src/
 scripts/          Entry points: build_scene, sensor_check, dead_reckoning, run
@@ -76,9 +77,10 @@ docs/             Images, frame diagram, derivations
 | Model, Jacobians, controllability/observability | Done | _name_ |
 | Go-to-goal controller, waypoints | Working (baseline) | _name_ |
 | EKF (pose model, calibrated Q/R, gating) | Done | _name_ |
-| LQR tracker | TODO: `src/control/lqr.py` | _name_ |
-| LiDAR obstacle avoidance | TODO: `src/sensing/lidar.py` | _name_ |
-| Visual docking, evaluation matrix | TODO | _name_ |
+| LQR tracker | Working: `src/control/lqr.py` | Siale |
+| LiDAR obstacle avoidance | Working: `src/planning/avoidance.py` | _name_ |
+| Visual docking | Working: `src/control/docking.py`, 5/5 seeds | Siale |
+| Evaluation matrix | TODO | _name_ |
 
 ## 4. Modelling (Part A)
 
@@ -211,7 +213,12 @@ Code: `src/estimation/ekf.py`. Discussion of every choice: [`docs/part_A_C_notes
 - **Controller:** _LQR on tracking error / state feedback_
 - **Weights / gains:** _Q_lqr, R_lqr values and how they were chosen_
 - **Limits:** _velocity and acceleration saturation, effect on tracking_
-- **Docking approach:** _final-approach strategy, tolerance_
+- **Docking approach** (`src/control/docking.py`, settings under `docking:` in the config): takes over after the last waypoint and works from marker detections and wheel odometry only, not the EKF or the marker's map pose.
+  - *Relative pose.* Each detection gives the marker pose in base_link; inverting it gives the robot pose in the marker frame (x out of the marker face). Between the 5 Hz camera frames this pose is carried forward with the odometry increments.
+  - *Approach.* A second LQR tracker (slower: v_ref 0.08 m/s) follows the marker normal from the robot's projection on it to the stop point 0.30 m from the marker. Ending on the normal, facing the marker, centres the marker in the image.
+  - *Decision.* Made on fresh detections only: the robot stops on the first frame that reads within 1 cm of the stop distance, and is docked if the marker is then within 10° of the image centre, otherwise the attempt fails (the controller never reverses). If odometry says the stop point is reached, it holds still until a frame confirms it.
+  - *Marker loss.* After 2 s without a detection it rotates in place towards the last known bearing; docking gives up after 30 s.
+  - *Tolerance.* Success is 0.25–0.35 m from the marker (base_link to marker centre) with the marker within ±15° of the image centre, judged against ground truth in `evaluation/metrics.py`. The 0.30 m target sits above the closest reliable detection range (0.25 m, Part B), and 15° is the bearing limit measured at 0.3 m.
 
 ## 8. Results (Parts C, D, E)
 
@@ -235,8 +242,18 @@ The EKF reduces final position error ~20× vs dead reckoning. Underestimating R 
 | Position RMSE (estimate vs truth) | 0.023 m |
 | Heading RMSE | 0.022 rad |
 | Tracking error (RMS) | _m (Part D)_ |
-| Docking final error | _m, rad (Part D)_ |
-| Docking success rate | _x / N_ |
+| Docking final range | 0.311 ± 0.001 m (target 0.30 m, allowed 0.25–0.35 m) |
+| Docking final image bearing | 0.09 ± 0.07° (allowed ±15°) |
+| Docking success rate | 5 / 5 |
+
+Position and heading RMSE are for the route only, as in the Part C study (`ekf_study.py` runs with docking off). Docking figures are from `python scripts/dock_study.py` (5 seeds, P controller on the route):
+
+| Route controller | Success | Final range [m] | Image bearing [°] | Lateral offset [cm] | Heading error [°] | Docking time [s] |
+|---|---|---|---|---|---|---|
+| P | 5/5 | 0.311 ± 0.001 | +0.09 ± 0.07 | 0.0 ± 0.1 | −0.01 ± 0.07 | 5.6 ± 0.1 |
+| LQR | 5/5 | 0.310 ± 0.001 | −0.03 ± 0.05 | −0.1 ± 0.1 | −0.09 ± 0.12 | 5.7 ± 0.0 |
+
+The robot stops about 1 cm beyond the target because it stops on the first frame inside the 1 cm tolerance; this is well inside the allowed band. Its own camera reading at the stop agrees with truth to 2–3 mm. During docking the EKF's χ² gate rejected 5 of the close-range (≈0.3 m) marker readings on seed 0 (NIS 15–58, none consecutive enough to trigger recovery) and mean NEES over the full run rose from 2.4 to 5.6: R appears too small at this range. Docking does not use the EKF, and the estimate stayed within 7 mm of truth.
 
 ### Robustness (repeated trials, varied conditions)
 | Condition | Trials | Success | Est. RMSE | Track RMSE | Notes |
