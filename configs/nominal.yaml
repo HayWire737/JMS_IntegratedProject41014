@@ -48,6 +48,8 @@ marker:
   id: 0
   size: 0.15               # black square edge length
   pose_world: [4.84, 2.0, 3.141592653589793]   # x, y, yaw of marker face normal
+  range_correction: [-0.00104, 0.00213]   # from scripts/calibrate_marker_range.py
+  
 
 obstacles:                 # used to build the scene and draw plots (not given to the robot)
   - {type: box, x: 2.0, y: 1.5, hx: 0.20, hy: 0.20}

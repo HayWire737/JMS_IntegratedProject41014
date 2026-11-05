@@ -35,11 +35,12 @@ def camera_intrinsics(cam_cfg):
 @dataclass
 class MarkerMeasurement:
     marker_id: int
-    range: float           # metres, base_link origin to marker centre (planar)
-    bearing: float         # rad, angle of marker centre in base_link (left positive)
-    p_base: np.ndarray     # marker centre in base_link [x, y, z]
-    yaw_base: float        # rad, direction of the marker face normal in base_link
-    corners: np.ndarray    # 4x2 pixel corners, for drawing / pixel-noise studies
+    range: float # metres, base_link origin to marker centre (planar)
+    bearing: float # rad, angle of marker centre in base_link (left positive)
+    p_base: np.ndarray # marker centre in base_link [x, y, z]
+    yaw_base: float # rad, direction of the marker face normal in base_link
+    corners: np.ndarray # 4x2 pixel corners, for drawing / pixel-noise studies
+    t_cam: np.ndarray = None # marker centre in the camera frame (after range correction)
 
     @property
     def pose(self):
@@ -60,8 +61,23 @@ class ArucoDetector:
         if K is None:
             K, dist = camera_intrinsics(cam_cfg)
         self.K, self.dist = K, dist
+        # Range bias correction, bias(d) = a2 d^2 + a3 d^3 (scripts/calibrate_marker_range.py)
+        self.range_correction = marker_cfg.get("range_correction")
         s = self.size / 2   # marker corners in the marker frame (OpenCV order)
         self.obj_pts = np.array([[-s, s, 0], [s, s, 0], [s, -s, 0], [-s, -s, 0]], dtype=np.float64)
+
+    def correct_range(self, t_cam):
+        """Remove the calibrated range bias by shortening the camera-to-marker vector.
+
+        The outer corners are found slightly inside the marker, so it looks smaller
+        and therefore further away; the error is along the viewing ray, so the
+        whole vector is scaled. Directions (and so bearings) are unchanged.
+        """
+        if not self.range_correction:
+            return t_cam
+        a2, a3 = self.range_correction
+        d = np.linalg.norm(t_cam)
+        return t_cam * (1.0 - a2 * d - a3 * d ** 2)       # d - bias(d), as a scale factor
 
     def detect(self, image_rgb):
         """Return a MarkerMeasurement for the target marker, or None if not seen."""
@@ -77,11 +93,12 @@ class ArucoDetector:
                                           flags=cv2.SOLVEPNP_IPPE_SQUARE)
             if not ok:
                 return None
-            p_base = camera_point_to_base(tvec.ravel(), self.cam_cfg)
+            t_cam = self.correct_range(tvec.ravel())
+            p_base = camera_point_to_base(t_cam, self.cam_cfg)
             # Marker z axis (out of the face, towards the camera) in the camera frame,
             # rotated into base_link: base = (z_cam, -x_cam, -y_cam)
             n_cam = cv2.Rodrigues(rvec)[0][:, 2]
             yaw = float(np.arctan2(-n_cam[0], n_cam[2]))
             return MarkerMeasurement(int(i), float(np.hypot(p_base[0], p_base[1])),
-                                     float(np.arctan2(p_base[1], p_base[0])), p_base, yaw, img_pts)
+                                     float(np.arctan2(p_base[1], p_base[0])), p_base, yaw, img_pts, t_cam)
         return None
