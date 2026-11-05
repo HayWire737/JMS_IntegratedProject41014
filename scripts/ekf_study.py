@@ -35,6 +35,7 @@ def main():
     ap.add_argument("--seeds", type=int, default=5)
     args = ap.parse_args()
     base = load_config(args.config)
+    base.setdefault("docking", {})["enabled"] = False     # route only, as in the reported results
 
     conditions = [("dead reckoning", "dr", {}),
                   ("EKF range+bearing", "ekf", {"measurement_model": "range_bearing"})]
