@@ -56,6 +56,41 @@ def summary(log, final_goal=None, ekf=None):
     return out
 
 
+def docking_error(x_true, cfg):
+    """Final docking pose against truth: range and image bearing to the marker, offset from
+    the marker normal, heading error from facing the marker, and whether it meets the
+    success criteria in docking.success_range / docking.success_bearing_deg."""
+    dk = cfg.get("docking", {})
+    mx, my, myaw = cfg["marker"]["pose_world"]
+    x, y, th = x_true
+    dx, dy = mx - x, my - y
+    c, s = np.cos(th), np.sin(th)
+    xb, yb = c * dx + s * dy, -s * dx + c * dy          # marker centre in base_link
+    rng = float(np.hypot(dx, dy))
+    bearing = float(np.arctan2(yb, xb - cfg["camera"]["x"]))   # from the optical axis, left positive
+    lateral = float(-np.sin(myaw) * -dx + np.cos(myaw) * -dy)  # robot offset from the marker normal
+    heading_err = float(wrap(th - (myaw + np.pi)))
+    lo, hi = dk.get("success_range", [0.25, 0.35])
+    ok = lo <= rng <= hi and abs(np.degrees(bearing)) <= dk.get("success_bearing_deg", 15.0)
+    return {"range_m": rng, "range_err_m": rng - dk.get("stop_distance", 0.30),
+            "bearing_deg": float(np.degrees(bearing)), "lateral_m": lateral,
+            "heading_err_deg": float(np.degrees(heading_err)), "success": bool(ok)}
+
+
+def docking_result(log, cfg):
+    """Docking outcome of a logged run: the stage's own decision and measurements, the
+    true final error (docking_error) and the time spent docking."""
+    phase = log["phase"]
+    out = docking_error(log["truth"][-1], cfg)
+    docking = phase != "route"
+    meas = log["dock_meas"][-1]
+    out.update({"state": str(phase[-1]),
+                "meas_range_m": float(meas[0]), "meas_bearing_deg": float(np.degrees(meas[1])),
+                "dock_time_s": float(log["t"][-1] - log["t"][docking][0]) if docking.any() else float("nan"),
+                "total_time_s": float(log["t"][-1] - log["t"][0])})
+    return out
+
+
 def print_summary(s):
     for k, v in s.items():
         print(f"  {k:<22} {v:.3f}" if isinstance(v, float) else f"  {k:<22} {v}")

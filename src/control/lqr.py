@@ -91,6 +91,18 @@ class LQRTracker:
         self._u_prev = np.zeros(2)
         self.history = []
 
+    def start_from_here(self):
+        """Begin the next segment at the robot's current position instead of the previous
+        waypoint. Called by the obstacle avoidance when it inserts or drops a detour, since
+        the robot is then not at the previous waypoint. History is kept."""
+        self._goal = None
+
+    def start_from(self, point):
+        """Begin the next segment at `point` instead of the previous waypoint, so the
+        robot tracks the line from `point` to the next goal. Used by the docking
+        stage to follow the marker normal. History is kept."""
+        self._goal = np.array(point, dtype=float)[:2]
+
     # ------------------------------------------------------------------ gains
     def gain(self, v_r):
         """LQR gain K for reference speed v_r, cached on a 1 cm/s grid."""
