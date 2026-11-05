@@ -27,6 +27,7 @@ from src.sensing.aruco import ArucoDetector
 from src.sensing.lidar import min_range_in_sector
 from src.sensing.odometry import WheelOdometry
 from src.sim.turtlebot_sim import TurtleBotSim
+from src.planning.avoidance import LidarAvoidance
 
 
 def run_trial(cfg, estimator="ekf", seed=None, view=False):
@@ -44,6 +45,7 @@ def run_trial(cfg, estimator="ekf", seed=None, view=False):
     else:
         controller = GoToGoal(ctl, rob)                       # baseline P controller
     planner = WaypointFollower(cfg["waypoints"], ctl["goal_tol"])
+    avoid = LidarAvoidance(cfg) if cfg.get("avoidance", {}).get("enabled") else None
     log = RunLogger()
 
     m = sim.step(0.0, 0.0)
@@ -68,7 +70,12 @@ def run_trial(cfg, estimator="ekf", seed=None, view=False):
         if goal is None:
             v, w = 0.0, 0.0
         else:
-            v, w = controller.command(x_est, goal)
+            target = goal
+            if avoid is not None:                             # detour around obstacles seen by the LiDAR
+                target = avoid.target(x_est, goal, m.lidar_ranges, m.lidar_angles)
+                if avoid.switched and hasattr(controller, "start_from_here"):
+                    controller.start_from_here()              # new LQR segment from where the robot is
+            v, w = controller.command(x_est, target)
             if min_range_in_sector(m.lidar_ranges, m.lidar_angles, 0.0, np.radians(30)) < ctl["stop_distance"]:
                 v = 0.0                                       # LiDAR safety stop
 
@@ -87,6 +94,9 @@ def main():
     ap.add_argument("--model", choices=["pose", "range_bearing"], help="override ekf.measurement_model")
     ap.add_argument("--R-scale", type=float, help="override ekf.R_scale")
     ap.add_argument("--controller", choices=["p", "lqr"], help="override controller.type")
+    ap.add_argument("--start", help="override start pose, 'x,y,yaw'")
+    ap.add_argument("--waypoints", help="override waypoints, 'x,y;x,y;...'")
+    ap.add_argument("--no-avoid", action="store_true", help="disable LiDAR obstacle avoidance")
     ap.add_argument("--seed", type=int)
     ap.add_argument("--view", action="store_true")
     ap.add_argument("--tag", help="name used for the output files")
@@ -99,6 +109,12 @@ def main():
         cfg["ekf"]["R_scale"] = args.R_scale
     if args.controller:
         cfg["controller"]["type"] = args.controller
+    if args.start:
+        cfg["sim"]["start_pose"] = [float(v) for v in args.start.split(",")]
+    if args.waypoints:
+        cfg["waypoints"] = [[float(v) for v in p.split(",")] for p in args.waypoints.split(";")]
+    if args.no_avoid:
+        cfg.setdefault("avoidance", {})["enabled"] = False
     ctl_type = cfg["controller"].get("type", "p")
     tag = args.tag or (args.estimator if ctl_type == "p" else f"{args.estimator}_{ctl_type}")
 
