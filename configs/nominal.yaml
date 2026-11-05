@@ -61,11 +61,26 @@ waypoints:              # hand-placed to avoid the obstacles, ends in front of t
   - [2.7, 2.0]
   - [4.3, 2.0]
 
-controller:                # baseline polar P controller (to be replaced by LQR)
-  k_rho: 0.8
+controller:
+  type: p                  # "p" = polar P controller, "lqr" = LQR tracker (can be overridden with run.py --controller)
+  k_rho: 0.8               # P controller gains
   k_alpha: 2.5
   goal_tol: 0.08
   stop_distance: 0.15      # LiDAR safety stop
+  lqr:                     # LQR tracker settings, see src/control/lqr.py
+    Q_lqr: [30.0, 60.0, 8.0]   # weights on [e_x (m), e_y (m), e_theta (rad)] in the robot frame
+    R_lqr: [4.0, 1.0]          # weights on [dv (m/s), dw (rad/s)]
+    v_ref: 0.15                # cruise speed along a segment (m/s)
+    v_min: 0.03                # creep speed floor while slowing into a waypoint (m/s)
+    slowdown_gain: 1.0         # v_ref <= gain * distance remaining on the segment (1/s)
+    v_lin_min: 0.05            # speed used to linearise when the reference is slower (m/s)
+    w_turn_max: 1.5            # yaw-rate cap for in-place turns (rad/s)
+    align_enter: 0.60          # heading error that triggers an in-place turn (rad)
+    align_exit: 0.15           # heading error at which tracking resumes (rad)
+    pos_hold: 0.30             # reference stops when position error reaches this (m)
+    ang_hold: 0.80             # ... or heading error reaches this (rad)
+    a_max: 0.5                 # linear acceleration limit (m/s^2); null disables
+    alpha_max: 4.0             # angular acceleration limit (rad/s^2); null disables
 
 ekf:                       # Part C. Values come from the calibration scripts, see docs/part_A_C_notes.md
   measurement_model: pose  # "pose" (default, fully observable) or "range_bearing" (rank-deficient)
