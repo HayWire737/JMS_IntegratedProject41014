@@ -98,3 +98,12 @@ ekf:                       # Part C. Values come from the calibration scripts, s
   max_marker_range: 3.0    # m, upper end of the calibrated range
   reset_after_rejections: 5   # consecutive gate rejections before divergence recovery (0 = never)
   reset_inflation: 100.0   # P multiplier on recovery
+
+avoidance:                 # LiDAR obstacle avoidance, see src/planning/avoidance.py
+  enabled: true
+  robot_radius: 0.10       # half-width of the robot incl. wheels (m)
+  margin: 0.12             # extra clearance kept from obstacles (m)
+  lookahead: 1.0           # obstacles further than this along the path are ignored (m)
+  detour_distance: 0.5     # how far out a detour waypoint is placed (m)
+  detour_reached: 0.15     # a detour counts as reached within this (m)
+  max_turn_deg: 120        # widest detour direction tried, each side of the goal
