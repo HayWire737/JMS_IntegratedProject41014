@@ -6,6 +6,7 @@ through evaluation/ just to log and score the run.
     python scripts/run.py                          # EKF (default), saves results/run_ekf.png
     python scripts/run.py --estimator dr           # dead-reckoning baseline for comparison
     python scripts/run.py --model range_bearing    # rank-deficient measurement model
+    python scripts/run.py --controller lqr         # LQR tracker (default comes from controller.type in the config)
     python scripts/run.py --view                   # 3D viewer (macOS: mjpython)
 """
 import argparse
@@ -18,6 +19,7 @@ from evaluation.ground_truth import RunLogger, true_pose          # evaluation o
 from evaluation.metrics import print_summary, summary
 from evaluation.plots import errors_with_bounds, trajectory_and_errors
 from src.control.go_to_goal import GoToGoal
+from src.control.lqr import LQRTracker
 from src.estimation.dead_reckoning import DeadReckoning
 from src.estimation.ekf import EKF
 from src.planning.waypoints import WaypointFollower
@@ -37,7 +39,10 @@ def run_trial(cfg, estimator="ekf", seed=None, view=False):
     aruco = ArucoDetector(cfg["marker"], cfg["camera"])
     x0 = cfg["sim"]["start_pose"]
     est = EKF(x0, cfg) if estimator == "ekf" else DeadReckoning(x0)
-    controller = GoToGoal(ctl, rob)                           # swap for LQRTracker in Part D
+    if ctl.get("type", "p") == "lqr":
+        controller = LQRTracker(ctl, rob, dt=sim.dt)          # LQR tracker
+    else:
+        controller = GoToGoal(ctl, rob)                       # baseline P controller
     planner = WaypointFollower(cfg["waypoints"], ctl["goal_tol"])
     log = RunLogger()
 
@@ -81,6 +86,7 @@ def main():
     ap.add_argument("--estimator", choices=["ekf", "dr"], default="ekf")
     ap.add_argument("--model", choices=["pose", "range_bearing"], help="override ekf.measurement_model")
     ap.add_argument("--R-scale", type=float, help="override ekf.R_scale")
+    ap.add_argument("--controller", choices=["p", "lqr"], help="override controller.type")
     ap.add_argument("--seed", type=int)
     ap.add_argument("--view", action="store_true")
     ap.add_argument("--tag", help="name used for the output files")
@@ -91,7 +97,10 @@ def main():
         cfg["ekf"]["measurement_model"] = args.model
     if args.R_scale:
         cfg["ekf"]["R_scale"] = args.R_scale
-    tag = args.tag or args.estimator
+    if args.controller:
+        cfg["controller"]["type"] = args.controller
+    ctl_type = cfg["controller"].get("type", "p")
+    tag = args.tag or (args.estimator if ctl_type == "p" else f"{args.estimator}_{ctl_type}")
 
     log, est, planner = run_trial(cfg, args.estimator, args.seed, args.view)
     status = "reached all waypoints" if planner.done else f"stopped at waypoint {planner.index}"
@@ -100,7 +109,8 @@ def main():
 
     names = {"ekf": f"EKF ({cfg['ekf']['measurement_model']})", "dr": "dead reckoning"}
     out = results_dir() / f"run_{tag}.png"
-    trajectory_and_errors(log, cfg, out, f"{names[args.estimator]} + P controller")
+    ctl_name = "LQR" if ctl_type == "lqr" else "P"
+    trajectory_and_errors(log, cfg, out, f"{names[args.estimator]} + {ctl_name} controller")
     print(f"Saved {out}")
     if args.estimator == "ekf":
         out2 = results_dir() / f"run_{tag}_bounds.png"
