@@ -235,7 +235,7 @@ The EKF reduces final position error ~20× vs dead reckoning. Underestimating R 
 |---|---|
 | Position RMSE (estimate vs truth) | 0.023 m |
 | Heading RMSE | 0.022 rad |
-| Tracking error (RMS) | _m (Part D)_ |
+| Tracking error (RMS) | 2.7 cm (P), 3.0 cm (LQR) |
 | Docking final range | 0.311 ± 0.001 m (target 0.30 m, allowed 0.25–0.35 m) |
 | Docking final image bearing | 0.09 ± 0.07° (allowed ±15°) |
 | Docking success rate | 5 / 5 |
@@ -249,18 +249,28 @@ Position and heading RMSE are for the route only, as in the Part C study (`ekf_s
 
 The robot stops about 1 cm beyond the target because it stops on the first frame inside the 1 cm tolerance; this is well inside the allowed band. Its own camera reading at the stop agrees with truth to 2–3 mm. During docking the EKF's χ² gate rejected 5 of the close-range (≈0.3 m) marker readings on seed 0 (NIS 15–58, none consecutive enough to trigger recovery) and mean NEES over the full run rose from 2.4 to 5.6: R appears too small at this range. Docking does not use the EKF, and the estimate stayed within 7 mm of truth.
 
-### Robustness (repeated trials, varied conditions)
-| Condition | Trials | Success | Est. RMSE | Track RMSE | Notes |
-|---|---|---|---|---|---|
-| Nominal | | | | | |
-| 2× sensor noise | | | | | |
-| Marker occlusion | | | | | |
-| Wheel slip / bias | | | | | |
-| Varied start pose | | | | | |
-| External push | | | | | |
+### Robustness (Part E)
+
+Full mission (LiDAR navigation, then visual docking), nominal config plus **one** change per row, 5 seeds each. `python scripts/robustness_study.py [--controller lqr]`.
+
+| Condition | Docked (P / LQR) | Est. RMSE P / LQR [cm] | Worst est. error P / LQR [cm] | NEES P / LQR |
+|---|---|---|---|---|
+| Nominal | 5/5 · 5/5 | 2.0 / 3.0 | 5 / 18 | 8.0 / 6.3 |
+| 2× sensor noise | 5/5 · 5/5 | 2.2 / 3.1 | 17 / 24 | 10.5 / 7.2 |
+| Camera blur (1 px) | 5/5 · 5/5 | 2.1 / 3.5 | 16 / 31 | 7.1 / 9.0 |
+| Marker occluded 22–28 s | 5/5 · 5/5 | 2.0 / 2.7 | 5 / 13 | 9.8 / 3.5 |
+| Wheel radius bias ×5 | 5/5 · 5/5 | 22.1 / 20.5 | 58 / 51 | 36.3 / 21.2 |
+| Wheel slip (left +20 %, 1 s) | 5/5 · 5/5 | 21.2 / 16.3 | 77 / 46 | 37.2 / 13.2 |
+| External push (8 N, 0.3 s) | 5/5 · 5/5 | 4.6 / 3.0 | 16 / 12 | 9.8 / 7.8 |
+| Varied start pose | 5/5 · 5/5 | 5.3 / 3.0 | 33 / 18 | 8.2 / 5.0 |
+
+![Robustness, P](docs/figures/robustness_p.png)
+
+**80/80 docked.** Noise, blur, occlusion and pushes barely affect the mission. Odometry faults (wheel bias, slip) are the weak point: see failure analysis.
 
 ### Trade-offs
-_e.g. R scaling vs. NEES and responsiveness; LQR weight ratio vs. control effort and tracking error._
+
+**P vs LQR:** P finishes in 31 s vs 44 s and is slightly more accurate nominally (2.0 vs 3.0 cm), but LQR degrades more gracefully under odometry faults (worst error under slip 46 vs 77 cm, NEES 13 vs 37).
 
 ### Failure analysis
 
