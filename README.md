@@ -35,6 +35,9 @@ python scripts/sensor_check.py     # encoders, LiDAR, camera and ArUco working
 python scripts/dead_reckoning.py   # open-loop odometry drift vs truth
 python scripts/run.py              # closed loop with the EKF, then visual docking (--no-dock to stop at the last waypoint)
 python scripts/dock_study.py       # docking over 5 seeds, scored against ground truth
+python scripts/compare_controllers.py   # P vs LQR on the route, 5 seeds
+python scripts/sweep_lqr_weights.py     # LQR weight and v_ref sweep (about 15 min)
+python scripts/lqr_design_report.py     # LQR gains and closed-loop poles
 python scripts/analyse_model.py    # Part A controllability/observability
 python scripts/ekf_study.py        # Part C repeated trials and R trade-off
 python scripts/run.py --view       # same, with the 3D viewer (macOS: use mjpython)
@@ -77,9 +80,9 @@ docs/             Images, frame diagram, derivations
 | Model, Jacobians, controllability/observability | Done | Muhammad |
 | Go-to-goal controller, waypoints | Working (baseline) | Muhammad |
 | EKF (pose model, calibrated Q/R, gating) | Done | Muhammad |
-| LQR tracker | Working: `src/control/lqr.py` | Siale |
-| LiDAR obstacle avoidance | Working: `src/planning/avoidance.py` | Jaden |
-| Visual docking | Working: `src/control/docking.py`, 5/5 seeds | Siale |
+| LQR tracker | Done, default controller: `src/control/lqr.py`; stable at every speed, weight sweep and P comparison in Section 7 | Siale |
+| LiDAR obstacle avoidance | Working with both controllers: `src/planning/avoidance.py` | Jaden |
+| Visual docking | Done: `src/control/docking.py`, 5/5 seeds with LQR and with P | Siale |
 | Evaluation matrix | TODO | Jaden |
 
 ## 4. Modelling (Part A)
@@ -204,15 +207,78 @@ Code: `src/estimation/ekf.py`. Discussion of every choice: [`docs/part_A_C_notes
 
 ## 7. Control (Part D)
 
-- **Controller:** _LQR on tracking error / state feedback_
-- **Weights / gains:** _Q_lqr, R_lqr values and how they were chosen_
-- **Limits:** _velocity and acceleration saturation, effect on tracking_
-- **Docking approach** (`src/control/docking.py`, settings under `docking:` in the config): takes over after the last waypoint and works from marker detections and wheel odometry only, not the EKF or the marker's map pose.
-  - *Relative pose.* Each detection gives the marker pose in base_link; inverting it gives the robot pose in the marker frame (x out of the marker face). Between the 5 Hz camera frames this pose is carried forward with the odometry increments.
-  - *Approach.* A second LQR tracker (slower: v_ref 0.08 m/s) follows the marker normal from the robot's projection on it to the stop point 0.30 m from the marker. Ending on the normal, facing the marker, centres the marker in the image.
-  - *Decision.* Made on fresh detections only: the robot stops on the first frame that reads within 1 cm of the stop distance, and is docked if the marker is then within 10° of the image centre, otherwise the attempt fails (the controller never reverses). If odometry says the stop point is reached, it holds still until a frame confirms it.
-  - *Marker loss.* After 2 s without a detection it rotates in place towards the last known bearing; docking gives up after 30 s.
-  - *Tolerance.* Success is 0.25–0.35 m from the marker (base_link to marker centre) with the marker within ±15° of the image centre, judged against ground truth in `evaluation/metrics.py`. The 0.30 m target sits above the closest reliable detection range (0.25 m, Part B), and 15° is the bearing limit measured at 0.3 m.
+Code: `src/control/lqr.py` (tracker), `src/control/docking.py` (docking). Full design notes and every number: [`docs/lqr_design.md`](docs/lqr_design.md). Scripts: `compare_controllers.py` (P vs LQR), `sweep_lqr_weights.py` (weights, v_ref), `lqr_design_report.py` (gains, poles), `dock_study.py` (docking). All runs use the EKF estimate in the loop and are scored against ground truth in `evaluation/metrics.py`. **Default controller: LQR** (`controller.type: lqr`); the P go-to-goal controller is kept as the baseline.
+
+### Controller design
+
+- **Reference.** Each waypoint pair defines a segment. A reference point moves along it at v_r: cruise v_ref = 0.15 m/s, slowing into the waypoint (v_r ≤ 1.0 s⁻¹ × remaining length, floor 0.03 m/s). It slows down when the robot lags (it stops at 0.30 m position error or 0.80 rad heading error), so it cannot run away from a held or pushed robot.
+- **Error model** (robot frame, Part A, `error_dynamics`): e = Rᵀ(θ)(p_ref − p), e_θ = θ_ref − θ, linearised about (v_r, ω_r = 0) with δu = u_ref − u:
+  ė = A e + B δu,  A = [[0, ω_r, 0], [−ω_r, 0, v_r], [0, 0, 0]],  B = [[1, 0], [0, 0], [0, 1]].
+- **Discrete LQR.** Zero-order hold at Δt = 0.05 s, discrete Riccati equation, K = (R + B_dᵀPB_d)⁻¹B_dᵀPA_d. Gains are computed at max(v_r, v_lin_min = 0.05 m/s) because the lateral error is uncontrollable at rest (rank 2, Part A), and cached on a 1 cm/s grid.
+- **Control law.** δu = −K e, so v = v_r cos e_θ + (Ke)₁ and ω = (Ke)₂. For heading errors above 0.60 rad the robot turns in place (heading gain only) until the error is below 0.15 rad; the two thresholds stop it switching back and forth.
+- **Limits.** 0 ≤ v ≤ 0.22 m/s (never reverse: the LiDAR safety stop only looks ahead), |ω| ≤ 2.84 rad/s (1.5 rad/s when turning in place), |a| ≤ 0.5 m/s², |α| ≤ 4 rad/s². At the nominal setting ω never reaches its limit (0 % of steps) and the robot turns in place for 5.8 % of the route (5 seeds), so saturation does not shape the nominal tracking result.
+
+### Weights, gains and stability
+
+**Q_lqr = diag(30, 60, 8)** on [e_x (m), e_y (m), e_θ (rad)], **R_lqr = diag(4, 1)** on [δv (m/s), δω (rad/s)]. At v_ref:
+
+K = [[2.558, 0, 0], [0, 7.149, 2.993]]   (rows δv, δω; columns e_x, e_y, e_θ)
+
+- **Along-track** (e_x → δv) is decoupled: Q_x and R_v only set one gain and one pole (0.872, τ = 0.37 s).
+- **Cross-track and heading** (e_y, e_θ → δω) are coupled. Their slow mode is path convergence, with time constant 7.29 s at 0.05 m/s, 2.41 s at v_ref and 1.62 s at v_max: **an offset decays over a fixed ~0.36 m of travel at any speed**.
+- **Only the ratio Q/R sets the gain**: Q ×4 and R ×0.25 give the same K to 8 × 10⁻³¹.
+- **Stable at every speed.** All closed-loop poles of A_d − B_dK are real and inside the unit circle from v = 0 (computed at v_lin_min) to v_max; the largest is 0.9932 at v_lin_min.
+
+![LQR poles](docs/figures/lqr_poles.png)
+
+### Q/R trade-off (`sweep_lqr_weights.py`)
+
+One-at-a-time scaling of each weight by 0.25, 0.5, 2 and 4, all of Q scaled together, and v_ref from 0.10 to 0.22 m/s; 5 seeds per point. Every setting finished every run.
+
+![LQR weight sweep](docs/figures/lqr_weight_sweep.png)
+
+| Setting | True cross-track RMS [cm] | ω jitter [rad/s/step] | Route time [s] |
+|---|---|---|---|
+| **Current** | **2.95 ± 0.44** | 0.044 | 38.5 |
+| Q_y ×0.25 / ×4 | 4.44 ± 0.44 / 3.63 ± 0.56 | 0.036 / 0.043 | 38.2 / 37.7 |
+| Q_θ ×0.25 / ×4 | 2.21 ± 0.33 / 6.27 ± 0.44 | 0.034 / 0.041 | 38.3 / 37.9 |
+| R_ω ×4 / ×0.25 | 2.41 ± 0.19 / 5.68 ± 0.42 | 0.032 / 0.044 | 38.7 / 37.5 |
+| v_ref 0.10 / 0.22 m/s | 3.20 ± 0.48 / 3.07 ± 0.36 | 0.033 / 0.048 | 54.7 / 28.1 |
+
+**Justification and where the trade-off sits.** The weights were set before the sweep; the sweep shows:
+- **Q_y = 60** is at or near the best value: lower or higher is worse.
+- **Q_x, R_v** have no measurable effect on tracking (2.92–3.07 cm across ×0.25 to ×4).
+- **Q_θ = 8, R_ω = 1** sit on the stiff side. A softer heading loop gave lower true cross-track *and* lower jitter on this route (Q_θ ×0.25: 2.21 cm; R_ω ×4: 2.41 cm), at the cost of more turning in place (8 % vs 6 % of the route). These are 5-seed results and were not adopted: they would also change docking (which inherits these weights) and slow convergence after a push or a detour, which has not been re-tested.
+- **v_ref = 0.15 m/s** is a speed/smoothness compromise. Accuracy is flat from 0.10 to 0.22 m/s while route time halves and jitter rises. At v_ref = v_max the forward command has no headroom to catch up with the reference.
+
+**Heavier weights are worse, and not because of tracking.** Over 20 seeds the current setting gives 3.06 ± 0.37 cm, all Q ×3 gives 5.63 ± 0.47 cm and all R ×0.25 gives 6.19 ± 0.48 cm. The controller follows its estimate equally well in all three (estimated-path cross-track ≈ 2 cm); what grows is the EKF error (2.97 → 5.42 / 6.05 cm). On the first segment no marker reading is usable, so the estimate there is pure odometry (EKF and dead reckoning give identical error at 12 s). With dead reckoning in the loop (10 seeds), straight-line heading drift is the same (−1.37 °/m) but the stiff controller rotates more (217° vs 178° over the route) and picks up 0.75° more heading error at the start and 2.7° more through the first corner, which is then carried for ~2 m before the marker is usable. Why odometry error during a rotation depends on how the turn is driven was not isolated.
+
+### LQR vs P (`compare_controllers.py`, 5 seeds, nominal route, docking off)
+
+| Controller | Finished | Route time [s] | True cross-track RMS [cm] | Max [cm] | Estimated-path cross-track [cm] | RMS ω [rad/s] | ω jitter [rad/s/step] |
+|---|---|---|---|---|---|---|---|
+| P | 5/5 | **25.3 ± 0.1** | **2.73 ± 0.21** | **6.4 ± 0.8** | 2.79 ± 0.17 | 0.595 | 0.182 |
+| LQR | 5/5 | 38.5 ± 0.2 | 2.95 ± 0.44 | 8.2 ± 0.3 | **2.17 ± 0.31** | **0.302** | **0.044** |
+
+**LQR is smoother, not more accurate, and slower.** It uses half the yaw rate and a quarter of the yaw-command jitter, and follows the route more closely *as the estimator sees it*, but its true cross-track is the same as P's within noise and its worst deviation is larger. True cross-track on this route is dominated by estimation error (above), not by either controller. It takes 13 s longer because it cruises at 0.15 m/s while P runs faster (RMS speed 0.135 vs 0.206 m/s). LQR is the default for its smoothness, its explicit effort/accuracy weighting and its behaviour under odometry faults (Section 8: smaller worst-case error under wheel slip).
+
+### Visual docking (`src/control/docking.py`, settings under `docking:`)
+
+Takes over after the last waypoint and works from marker detections and wheel odometry only, not the EKF or the marker's map pose.
+- *Relative pose.* Each detection gives the marker pose in base_link; inverting it gives the robot pose in the marker frame (x out of the marker face). Between the 5 Hz camera frames this pose is carried forward with the odometry increments.
+- *Approach.* A second LQR tracker (slower: v_ref 0.08 m/s) follows the marker normal from the robot's projection on it to the stop point 0.30 m from the marker. Ending on the normal, facing the marker, centres the marker in the image.
+- *Decision.* Made on fresh detections only: the robot stops on the first frame that reads within 1 cm of the stop distance, and is docked if the marker is then within 10° of the image centre, otherwise the attempt fails (the controller never reverses). If odometry says the stop point is reached, it holds still until a frame confirms it.
+- *Marker loss.* After 2 s without a detection it rotates in place towards the last known bearing; docking gives up after 30 s.
+- *Tolerance.* Success is 0.25–0.35 m from the marker (base_link to marker centre) with the marker within ±15° of the image centre, judged against ground truth. The 0.30 m target sits above the closest reliable detection range (0.25 m, Part B), and 15° is the bearing limit measured at 0.3 m.
+
+**Docking results** (`dock_study.py`, 5 seeds, full mission, mean ± std against ground truth):
+
+| Route controller | Success | Final range [m] | Image bearing [°] | Lateral offset [cm] | Heading error [°] | Docking time [s] | Mission time [s] |
+|---|---|---|---|---|---|---|---|
+| **LQR (default)** | **5/5** | 0.310 ± 0.001 | −0.03 ± 0.05 | −0.1 ± 0.1 | −0.09 ± 0.12 | 5.7 ± 0.0 | 44.1 ± 0.2 |
+| P | 5/5 | 0.311 ± 0.001 | +0.09 ± 0.07 | 0.0 ± 0.1 | −0.01 ± 0.07 | 5.6 ± 0.1 | 30.9 ± 0.1 |
+
+The robot stops about 1 cm beyond the target because it stops on the first frame inside the 1 cm tolerance, well inside the allowed band; its own camera reading at the stop agrees with truth to 2–3 mm. Cross-track offsets decay over ~0.36 m and the final approach is only 0.24 m long, so docking relies on the route ending on the marker normal; an offset at the last waypoint is only partly removed (unit tests: 6 cm → about 3.5 cm).
 
 ## 8. Results (Parts C, D, E)
 
@@ -235,23 +301,18 @@ The EKF reduces final position error ~20× vs dead reckoning. Underestimating R 
 |---|---|
 | Position RMSE (estimate vs truth) | 0.023 m |
 | Heading RMSE | 0.022 rad |
-| Tracking error (RMS) | 2.7 cm (P), 3.0 cm (LQR) |
-| Docking final range | 0.311 ± 0.001 m (target 0.30 m, allowed 0.25–0.35 m) |
-| Docking final image bearing | 0.09 ± 0.07° (allowed ±15°) |
-| Docking success rate | 5 / 5 |
+| True cross-track RMS (route) | 2.95 ± 0.44 cm (LQR), 2.73 ± 0.21 cm (P) |
+| Docking final range | 0.310 ± 0.001 m (LQR; target 0.30 m, allowed 0.25–0.35 m) |
+| Docking final image bearing | −0.03 ± 0.05° (LQR; allowed ±15°) |
+| Docking success rate | 5 / 5 (LQR), 5 / 5 (P) |
 
-Position and heading RMSE are for the route only, as in the Part C study (`ekf_study.py` runs with docking off). Docking figures are from `python scripts/dock_study.py` (5 seeds, P controller on the route):
+Position and heading RMSE are for the route only with the P controller, as in the Part C study (`ekf_study.py` pins docking off and `controller.type: p`). Tracking and docking: Section 7 (5 seeds each).
 
-| Route controller | Success | Final range [m] | Image bearing [°] | Lateral offset [cm] | Heading error [°] | Docking time [s] |
-|---|---|---|---|---|---|---|
-| P | 5/5 | 0.311 ± 0.001 | +0.09 ± 0.07 | 0.0 ± 0.1 | −0.01 ± 0.07 | 5.6 ± 0.1 |
-| LQR | 5/5 | 0.310 ± 0.001 | −0.03 ± 0.05 | −0.1 ± 0.1 | −0.09 ± 0.12 | 5.7 ± 0.0 |
-
-The robot stops about 1 cm beyond the target because it stops on the first frame inside the 1 cm tolerance; this is well inside the allowed band. Its own camera reading at the stop agrees with truth to 2–3 mm. During docking the EKF's χ² gate rejected 5 of the close-range (≈0.3 m) marker readings on seed 0 (NIS 15–58, none consecutive enough to trigger recovery) and mean NEES over the full run rose from 2.4 to 5.6: R appears too small at this range. Docking does not use the EKF, and the estimate stayed within 7 mm of truth.
+With the P controller on seed 0, during docking the EKF's χ² gate rejected 5 of the close-range (≈0.3 m) marker readings (NIS 15–58, none consecutive enough to trigger recovery) and mean NEES over the full run rose from 2.4 to 5.6: R appears too small at this range. Docking does not use the EKF, and the estimate stayed within 7 mm of truth.
 
 ### Robustness (Part E)
 
-Full mission (LiDAR navigation, then visual docking), nominal config plus **one** change per row, 5 seeds each. `python scripts/robustness_study.py [--controller lqr]`.
+Full mission (LiDAR navigation, then visual docking), nominal config plus **one** change per row, 5 seeds each. `python scripts/robustness_study.py --controller p` and `--controller lqr`.
 
 | Condition | Docked (P / LQR) | Est. RMSE P / LQR [cm] | Worst est. error P / LQR [cm] | NEES P / LQR |
 |---|---|---|---|---|
@@ -269,6 +330,8 @@ Full mission (LiDAR navigation, then visual docking), nominal config plus **one*
 **80/80 docked.** Noise, blur, occlusion and pushes barely affect the mission. Odometry faults (wheel bias, slip) are the weak point: see failure analysis.
 
 ### Trade-offs
+
+**LQR weights:** a stiffer heading loop (Q_θ or Q/R up) gives no less jitter and more true cross-track on this route; a softer one gives less of both but turns in place more (Section 7).
 
 **P vs LQR:** P finishes in 31 s vs 44 s and is slightly more accurate nominally (2.0 vs 3.0 cm), but LQR degrades more gracefully under odometry faults (worst error under slip 46 vs 77 cm, NEES 13 vs 37).
 

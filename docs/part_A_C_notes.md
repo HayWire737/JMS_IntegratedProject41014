@@ -277,8 +277,8 @@ python -m pytest                              # 15 tests, including Jacobian che
 python scripts/analyse_model.py               # Part A ranks + information plot
 python scripts/calibrate_marker_noise.py      # R (about 3 min)
 python scripts/calibrate_odometry_noise.py    # Q (about 1 min)
-python scripts/run.py                         # one EKF run + 3-sigma plot
-python scripts/run.py --estimator dr          # dead-reckoning comparison
+python scripts/run.py --controller p --no-dock                  # one EKF run + 3-sigma plot (P, as in C6)
+python scripts/run.py --controller p --no-dock --estimator dr   # dead-reckoning comparison
 python scripts/ekf_study.py --seeds 5         # repeated trials + R trade-off (about 6 min)
 python scripts/observability_experiment.py    # wrong initial pose experiment
 ```
