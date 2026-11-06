@@ -56,6 +56,44 @@ def summary(log, final_goal=None, ekf=None):
     return out
 
 
+def route_polyline(cfg):
+    """Planned route as an (N, 2) polyline: start position, then the waypoints."""
+    return np.array([cfg["sim"]["start_pose"][:2]] + [w[:2] for w in cfg["waypoints"]], dtype=float)
+
+
+def distance_to_polyline(p, route):
+    """Distance from each (N, 2) point to the nearest segment of the polyline."""
+    p = np.atleast_2d(p)
+    d = np.full(len(p), np.inf)
+    for a, b in zip(route[:-1], route[1:]):
+        ab = b - a
+        L2 = ab @ ab
+        t = np.clip((p - a) @ ab / L2, 0.0, 1.0) if L2 > 1e-12 else np.zeros(len(p))   # zero-length: distance to a
+        d = np.minimum(d, np.linalg.norm(p - (a + t[:, None] * ab), axis=1))
+    return d
+
+
+def tracking_metrics(log, cfg):
+    """Route tracking and control effort over the route phase (docking steps excluded).
+
+    track_*      cross-track distance of the TRUE path to the waypoint polyline
+    est_track_*  the same for the estimated path (what the controller sees)
+    v_rms, w_rms RMS of the commanded speed and yaw rate
+    v_jitter, w_jitter  RMS step-to-step change of the commands
+    """
+    on = log["phase"] == "route" if "phase" in log else np.ones(len(log["t"]), bool)
+    route = route_polyline(cfg)
+    d_true = distance_to_polyline(log["truth"][on, :2], route)
+    d_est = distance_to_polyline(log["est"][on, :2], route)
+    v, w = log["cmd"][on, 0], log["cmd"][on, 1]
+    rms = lambda x: float(np.sqrt(np.mean(np.square(x)))) if len(x) else float("nan")
+    return {"route_time_s": float(log["t"][on][-1] - log["t"][0]),
+            "track_rms_m": rms(d_true), "track_max_m": float(d_true.max()),
+            "est_track_rms_m": rms(d_est),
+            "v_rms": rms(v), "w_rms": rms(w),
+            "v_jitter": rms(np.diff(v)), "w_jitter": rms(np.diff(w))}
+
+
 def docking_error(x_true, cfg):
     """Final docking pose against truth: range and image bearing to the marker, offset from
     the marker normal, heading error from facing the marker, and whether it meets the

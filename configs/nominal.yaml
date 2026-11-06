@@ -62,7 +62,7 @@ waypoints:              # hand-placed to avoid the obstacles, ends in front of t
   - [4.3, 2.0]
 
 controller:
-  type: p                  # "p" = polar P controller, "lqr" = LQR tracker (can be overridden with run.py --controller)
+  type: lqr                # "lqr" = LQR tracker (default), "p" = polar P controller baseline (override with run.py --controller)
   k_rho: 0.8               # P controller gains
   k_alpha: 2.5
   goal_tol: 0.08
