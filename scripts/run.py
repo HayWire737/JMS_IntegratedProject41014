@@ -32,11 +32,11 @@ from src.sim.turtlebot_sim import TurtleBotSim
 from src.planning.avoidance import LidarAvoidance
 
 
-def run_trial(cfg, estimator="ekf", seed=None, view=False):
+def run_trial(cfg, estimator="ekf", seed=None, view=False, on_step=None):
     """One complete run. Returns (log arrays, estimator, planner).
 
-    With docking enabled the log also holds "phase" (route, search, approach,
-    docked, failed) and "dock_meas" (last measured range and image bearing).
+    on_step, if given, is called every control step with a dict of what happened
+    (used by scripts/record_demo.py to draw the video; it does not change the run).
     """
     rob, ctl = cfg["robot"], cfg["controller"]
     sim = TurtleBotSim(cfg, seed=seed)
@@ -77,6 +77,7 @@ def run_trial(cfg, estimator="ekf", seed=None, view=False):
 
         # --- planning and control (estimate only)
         goal = planner.current(x_est)
+        target = None
         docking = goal is None and dock is not None and not dock.finished
         if docking:
             v, w = dock.command()                             # visual docking after the last waypoint
@@ -91,8 +92,13 @@ def run_trial(cfg, estimator="ekf", seed=None, view=False):
             v, w = controller.command(x_est, target)
         if min_range_in_sector(m.lidar_ranges, m.lidar_angles, 0.0, np.radians(30)) < ctl["stop_distance"]:
             v = 0.0                                           # LiDAR safety stop
-
-        log.log(m.t, x_est, true_pose(sim), (v, w), seen, getattr(est, "P", None))   # truth -> log only
+            
+        x_true = true_pose(sim)                                # truth -> log and recorder only
+        log.log(m.t, x_est, x_true, (v, w), seen, getattr(est, "P", None))
+        if on_step is not None:
+            on_step({"t": m.t, "meas": m, "x_est": x_est.copy(), "P": getattr(est, "P", None),
+                     "x_true": x_true, "goal": goal, "target": target, "marker": marker, "cmd": (v, w),
+                     "phase": "route" if goal is not None else (dock.state if dock is not None else "done")})
         if dock is not None:
             phase.append("route" if goal is not None else dock.state)
             dock_meas.append((dock.last_range, dock.last_bearing))
