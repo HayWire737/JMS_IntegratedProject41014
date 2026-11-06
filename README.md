@@ -8,7 +8,7 @@
 | **Members** | _Muhammad Suhaib Khan (1351525)_, _Jaden Gambrill(26065197)_, _Siale Smythe (24831226)_ |
 | **Track** | A: mobile robot, visual waypoint navigation (MuJoCo) |
 | **Hardware** | _Simulation only_ |
-| **Demo video** | _[link, 5 min]_ |
+| **Demo video** | _[Watch on YouTube](https://youtu.be/eoiVcd94KO8)_ |
 
 ---
 
@@ -47,7 +47,7 @@ Figures are written to `results/`. All tunable values are in `configs/nominal.ya
 
 **Windows PowerShell:** activate with `.venv\Scripts\Activate.ps1`. On Python 3.15, PyYAML has no prebuilt package; use Python 3.13, or set `$env:PYYAML_FORCE_LIBYAML = "0"` before `pip install`.
 
-Tested on: Windows 11 Home (build 26200), Python 3.15.0, MuJoCo 3.17.0, NumPy 2.5.4, SciPy 1.18.1, opencv-contrib-python 5.0.0.93.
+Tested on: Windows 11 (Python 3.15, MuJoCo 3.17, OpenCV 5.0) and macOS on Apple silicon (Python 3.15, MuJoCo 3.16, OpenCV 5.0).
 
 ## 3. Repository layout
 
@@ -363,7 +363,35 @@ _Setup, differences from simulation, quantitative sim-vs-hardware comparison._
 
 ## 10. Limitations and future work
 
-_What the results do and do not support._
+All results come from one simulated room, one marker and one route, mostly over 5 seeds. They show that the pipeline works and degrades in a predictable way inside that setup. They do not show how well it carries over to a real robot or a different environment.
+
+### General
+
+- **Simulation only.** No hardware was used. The MuJoCo camera is an exact pinhole, wheel–floor contact is idealised, and the noise models are ones we chose, so real sensors would add effects we never tested (lens distortion, motion blur, changing light, wheel slip on carpet).
+- **Known start pose.** Odometry is integrated straight in the world frame from a known start, with no separate odom frame. With an unknown start, the robot would need the marker in view from the start or a global localisation step.
+- **Ground truth for evaluation only.** Ground truth is used only in the offline calibration scripts and in scoring. `tests/test_no_ground_truth.py` enforces this for `src/`.
+
+### Sensing (Part B)
+
+- **Calibration validates the method, not a real lens.** The checkerboard calibration found a real bug (the half-pixel principal point), but there was no distortion to correct. One calibration pins c_x to about ±0.25 px, so the bearing bias was halved, not removed.
+- **Range correction depends on range only.** Beyond 2 m the leftover bias also depends on view angle (about 1.5–2× larger at 20° off the marker normal). Beyond 3 m the scatter between poses dominates, so readings there are discarded rather than corrected.
+- **Detection limits are for nominal noise.** Blur cuts long-range detection sharply, and the envelope was not re-measured under the Part E conditions.
+
+### Estimation (Part C)
+
+- **Q is tuned for nominal conditions.** The fitted Q is scaled ×10.3 so that predict-only NEES = 3 on the nominal route. It does not cover larger wheel errors: under wheel bias or slip, P stays small while the true error reaches 50–77 cm (Section 8).
+- **R is too small at very close range.** In the full mission, close-range (≈0.3 m) readings during docking are gated out and mean NEES rises above 3 (6–8 nominal in Section 8, against 2.45 on the route only). Docking does not use the EKF, so the mission is unaffected, but the filter is overconfident there.
+- **Single marker.** From about 3 s to 19 s no marker reading is usable, so the EKF runs on odometry alone for most of the route. Recovery depends on divergence recovery, not on the gate accepting the first good reading.
+
+### Navigation (LiDAR avoidance)
+
+- **Reactive, no map.** Detours are chosen from the current scan only. Avoidance was tested on static obstacles along our route (5/5 runs get past, against stuck without it). It was not tested with moving obstacles, dead ends or narrow gaps. If every heading within ±120° is blocked, it falls back to the goal and relies on the safety stop.
+- **Detours inherit the EKF error.** Scan points are placed with the estimated pose, so a large estimation error (for example after wheel slip) shifts where a detour is placed.
+
+### Robustness (Part E)
+
+- **One change at a time, at one magnitude.** Each condition changes one thing at a fixed size (for example an 8 N push or a 20 % slip). Combined faults were not tested and no condition was pushed until it failed, so 80/80 docked shows the system survives these cases, not how much margin is left.
+- **5 seeds per condition.** That is enough to separate nominal from odometry faults, but too few to rank conditions with similar results.
 
 ### Control
 
@@ -375,20 +403,27 @@ _What the results do and do not support._
 - **Q/R tuned for nominal conditions.** The weights were chosen and swept on the nominal route; the robustness study used them unchanged.
 - **Future work.** Check the softer heading weights (Q_θ ×0.25, R_ω ×4) over 20 seeds, then re-run docking, the avoidance test and the robustness study before adopting them; isolate the rotation–odometry effect; test docking from offset last-waypoint poses.
 
+### Future work
+
+- Adaptive Q (inflate it when innovations stay large) instead of relying on divergence recovery.
+- Raise R at close range, or fit it down to 0.25 m.
+- Add a second marker, or LiDAR scan matching against the known walls, so the EKF has a correction during the 3–19 s blind stretch.
+- Sweep each disturbance up to the point of failure, and test combined faults.
+
 ## 11. Individual contributions
 
 | Member | Led | Contributed to |
 |---|---|---|
 | Muhammad Suhaib Khan (1351525) | Part A (modelling), Part C (EKF) | Project page, repository setup |
-| Jaden Gambrill (26065197) | Part B (sensing) and the simulation enviroment | Repository workflow (branch protection, reviews) |
+| Jaden Gambrill (26065197) | Part B (sensing, calibration, frames), simulation environment, Part E (robustness study)| Repository workflow (branch protection, reviews) |
 | Siale Smythe (24831226) | Part D (control) | LQR tracker, visual docking, P vs LQR comparison, Q/R/v_ref sweep and design report, control tests |
 
 ## 12. Generative AI declaration
 
 | Tool | Purpose | Where used |
 |---|---|---|
-| _e.g. Claude_ | _e.g. README structure, debugging help_ | _e.g. README, src/estimation_ |
+| Claude (Anthropic) | Explaining how to use git and the codebase; drafting and debugging code and tests, which I then revised upon, ran and checked myself; drafting README text and the video script | Part B scripts and tests, `src/sensing/aruco.py`, `src/sim/turtlebot_sim.py`, `src/frames/se2.py`, `src/planning/avoidance.py`, `scripts/robustness_study.py`, `scripts/record_demo.py`, README sections 5 and 8 |
 
 ## 13. References
 
-_Tutorials, papers, libraries used._
+_Class Tutorial powerpoint slides and past sensors and control assignments_
