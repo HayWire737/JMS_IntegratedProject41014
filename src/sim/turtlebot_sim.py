@@ -47,6 +47,15 @@ class TurtleBotSim:
         self._enc_adr = [self._sensor_adr("encoder_left"), self._sensor_adr("encoder_right")]
         self._lidar_adr = np.array([self._sensor_adr(f"lidar_{i}") for i in range(n)])
 
+        # Part E disturbances. All off unless the config has a `disturbances` section.
+        # They act on the simulated world (forces, encoder slip, what the camera can see);
+        # nothing here is read back by the estimator or controller.
+        self.dist = cfg.get("disturbances") or {}
+        body = lambda name: mujoco.mj_name2id(self._model, mujoco.mjtObj.mjOBJ_BODY, name)
+        self._base_body = body("base_link")
+        self._marker_geom = mujoco.mj_name2id(self._model, mujoco.mjtObj.mjOBJ_GEOM, "marker_plate")
+        self._marker_mat = int(self._model.geom_matid[self._marker_geom])
+
         cam = cfg["camera"]
         self._renderer = None
         self._cam_size = (cam["height"], cam["width"])
@@ -71,6 +80,8 @@ class TurtleBotSim:
         mujoco.mj_forward(self._model, self._data)
         self._step_count = 0
         self._tick_noise = np.zeros(2)
+        self._slip_angle = np.zeros(2)
+        self._last_angles = None
 
     def open_viewer(self):
         """Interactive 3D viewer. On macOS run scripts with `mjpython` instead of `python`."""
@@ -84,6 +95,7 @@ class TurtleBotSim:
         wl = (v - w * self.b / 2) / self.r
         wr = (v + w * self.b / 2) / self.r
         self._data.ctrl[:] = [wl, wr]
+        self._apply_disturbances()
         t0 = time.perf_counter()
         for _ in range(self.n_sub):
             mujoco.mj_step(self._model, self._data)
@@ -95,6 +107,21 @@ class TurtleBotSim:
 
         return self._measure()
 
+    def _apply_disturbances(self):
+        """Push and marker occlusion, each active in its own time window."""
+        t = self._data.time
+        active = lambda d: bool(d) and d["t"] <= t < d["t"] + d["duration"]
+
+        push = self.dist.get("push")                 # external force on the robot, world frame [N]
+        force = np.zeros(6)
+        if active(push):
+            force[:2] = push["force"]
+        self._data.xfrc_applied[self._base_body] = force
+
+        occluded = any(t0 <= t < t1 for t0, t1 in self.dist.get("occlusion", []))
+        # covering the marker: the plate loses its ArUco texture and shows as plain grey
+        self._model.geom_matid[self._marker_geom] = -1 if occluded else self._marker_mat
+
     def _measure(self):
         noise = self.cfg["noise"]
         angles = np.array([self._data.sensordata[a] for a in self._enc_adr])
@@ -102,6 +129,12 @@ class TurtleBotSim:
         scale = 1.0 + np.asarray(noise.get("wheel_scale_error", [0.0, 0.0]))
         if noise["encoder_tick_sigma"] > 0:
             self._tick_noise += self.rng.normal(0, noise["encoder_tick_sigma"], 2)
+        slip = self.dist.get("slip")
+        if self._last_angles is not None and slip and slip["t"] <= self._data.time < slip["t"] + slip["duration"]:
+            i = 0 if slip.get("wheel", "left") == "left" else 1
+            self._slip_angle[i] += slip["extra"] * (angles[i] - self._last_angles[i])
+        self._last_angles = angles
+        angles = angles + self._slip_angle
         ticks = np.round(angles * scale / (2 * np.pi) * self.ticks_per_rev + self._tick_noise)
 
         ranges = self._data.sensordata[self._lidar_adr].copy()

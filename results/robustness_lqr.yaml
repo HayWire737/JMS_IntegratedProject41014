@@ -1,0 +1,123 @@
+controller: lqr
+seeds: 5
+conditions:
+  Nominal:
+    trials: 5
+    success: 5
+    est_rmse_m:
+    - 0.03000003938107229
+    - 0.004394872005524706
+    est_max_m: 0.18073938168754916
+    track_rms_m:
+    - 0.029906812327162625
+    - 0.004506855659237238
+    min_clearance_m: 0.39949754678654426
+    collisions: 0
+    nees: 6.323457673522188
+    time_s: 44.05000000000787
+    failures: []
+  "2\xD7 sensor noise":
+    trials: 5
+    success: 5
+    est_rmse_m:
+    - 0.03082417291953284
+    - 0.008644800718086482
+    est_max_m: 0.24276077165663995
+    track_rms_m:
+    - 0.03097082838582938
+    - 0.006979580463985996
+    min_clearance_m: 0.3932191537721057
+    collisions: 0
+    nees: 7.193457024457269
+    time_s: 44.05000000000787
+    failures: []
+  Camera blur (1 px):
+    trials: 5
+    success: 5
+    est_rmse_m:
+    - 0.03490995409749785
+    - 0.010906328560307982
+    est_max_m: 0.3061019406222768
+    track_rms_m:
+    - 0.030266012265112864
+    - 0.005619602695735859
+    min_clearance_m: 0.39949754678654426
+    collisions: 0
+    nees: 8.96192927771544
+    time_s: 44.6500000000086
+    failures: []
+  "Marker occluded 22\u201328 s":
+    trials: 5
+    success: 5
+    est_rmse_m:
+    - 0.027319431153712742
+    - 0.00747542492514668
+    est_max_m: 0.12765879104438607
+    track_rms_m:
+    - 0.029140979650850572
+    - 0.004364692428407263
+    min_clearance_m: 0.39949754678654426
+    collisions: 0
+    nees: 3.5405662140135177
+    time_s: 43.65000000000738
+    failures: []
+  "Wheel radius bias \xD75":
+    trials: 5
+    success: 5
+    est_rmse_m:
+    - 0.20470443538428418
+    - 0.0067870151546716015
+    est_max_m: 0.505410913143396
+    track_rms_m:
+    - 0.1890402340805821
+    - 0.0012981011548562605
+    min_clearance_m: 0.2197026435704879
+    collisions: 0
+    nees: 21.19083000739069
+    time_s: 45.330000000009434
+    failures: []
+  Wheel slip (left +20 % for 1 s):
+    trials: 5
+    success: 5
+    est_rmse_m:
+    - 0.1626219504293367
+    - 0.013227284218652281
+    est_max_m: 0.45487904338220586
+    track_rms_m:
+    - 0.13824507053037072
+    - 0.004187404453077842
+    min_clearance_m: 0.22821146198266035
+    collisions: 0
+    nees: 13.241824537775596
+    time_s: 47.37000000001192
+    failures: []
+  External push (8 N, 0.3 s):
+    trials: 5
+    success: 5
+    est_rmse_m:
+    - 0.030180664151606286
+    - 0.005982690949438882
+    est_max_m: 0.11716601750671947
+    track_rms_m:
+    - 0.03978415226884574
+    - 0.005963910940499598
+    min_clearance_m: 0.46144641243515727
+    collisions: 0
+    nees: 7.788422789105295
+    time_s: 44.41000000000831
+    failures: []
+  Varied start pose:
+    trials: 5
+    success: 5
+    est_rmse_m:
+    - 0.030264037618287186
+    - 0.03560805505170571
+    est_max_m: 0.18215575369875606
+    track_rms_m:
+    - 0.04190787845267775
+    - 0.022447728447382173
+    min_clearance_m: 0.221374645594207
+    collisions: 0
+    nees: 4.996406991044171
+    time_s: 43.97000000000777
+    failures: []
