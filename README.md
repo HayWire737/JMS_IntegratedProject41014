@@ -274,6 +274,12 @@ Full mission (LiDAR navigation, then visual docking), nominal config plus **one*
 
 ### Failure analysis
 
+**Gate lockout (estimator).** The first EKF was worse than dead reckoning (final error 18 cm vs 15 cm, 37 of 62 updates rejected). Logging every innovation showed that marker readings from 4.3–4.8 m, beyond the calibrated range, were biased ~15 cm in depth but accepted; they shifted the estimate ~10 cm and shrank P, after which correct close-range readings had NIS 30–45 and were all gated out. Fix: ignore readings beyond the calibrated range and add divergence recovery. Result: final error 0.5 cm, NEES 2.5.
+
+**Unobservable direction (model).** Range+bearing cannot correct initial error along the rotation about the marker (Part A); the pose measurement model fixes this.
+
+**Overconfident EKF after odometry faults (integration).** With wheel bias ×5 or slip the EKF error reaches 50–77 cm (NEES ≈ 35), yet every trial still docks. Cause: from ~3 s to 19 s no marker reading is usable (beyond the 3 m cut-off, then out of view), so the EKF runs on odometry alone; Q only covers the nominal ±0.2 % wheel error, so P stays small while the error grows. When the marker returns, the χ² gate rejects the correct readings (19 rejections). The divergence recovery (P inflated after 5 rejections) then accepts them and the error falls below 1 cm within 6 s. Weak points: single-marker coverage, and Q tuned for nominal conditions only.
+
 **Coupled sensor noise (simulation).** Enabling camera noise changed odometry drift by 20 %: all sensors shared one random generator. Fixed with one stream per sensor (`tests/test_sim_noise.py`).
 
 **Phantom LiDAR obstacles (simulation).** MuJoCo clamps long beams to 3.5 m instead of returning nothing, making a ring of fake obstacles (13 of 72 beams). Max-range returns are now dropped; worst scan point went from 607 mm to 23 mm off a surface (`tests/test_frames.py`).
