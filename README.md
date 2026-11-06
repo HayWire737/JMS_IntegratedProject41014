@@ -23,8 +23,8 @@ _Insert pipeline block diagram: sensors → EKF → planner → LQR → MuJoCo, 
 Requires Python 3.10+.
 
 ```bash
-git clone https://github.com/<org>/<repo>.git
-cd <repo>
+git clone https://github.com/HayWire737/JMS_IntegratedProject41014.git
+cd JMS_IntegratedProject41014
 python -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
@@ -45,7 +45,9 @@ python scripts/run.py --view       # same, with the 3D viewer (macOS: use mjpyth
 
 Figures are written to `results/`. All tunable values are in `configs/nominal.yaml`.
 
-Tested on: _OS, Python version, MuJoCo version_.
+**Windows PowerShell:** activate with `.venv\Scripts\Activate.ps1`. On Python 3.15, PyYAML has no prebuilt package; use Python 3.13, or set `$env:PYYAML_FORCE_LIBYAML = "0"` before `pip install`.
+
+Tested on: Windows 11 Home (build 26200), Python 3.15.0, MuJoCo 3.17.0, NumPy 2.5.4, SciPy 1.18.1, opencv-contrib-python 5.0.0.93.
 
 ## 3. Repository layout
 
@@ -83,7 +85,7 @@ docs/             Images, frame diagram, derivations
 | LQR tracker | Done, default controller: `src/control/lqr.py`; stable at every speed, weight sweep and P comparison in Section 7 | Siale |
 | LiDAR obstacle avoidance | Working with both controllers: `src/planning/avoidance.py` | Jaden |
 | Visual docking | Done: `src/control/docking.py`, 5/5 seeds with LQR and with P | Siale |
-| Evaluation matrix | TODO | Jaden |
+| Evaluation matrix | Done: `scripts/robustness_study.py`, 8 conditions × 5 seeds with P and LQR, 80/80 docked (Section 8) | Jaden |
 
 ## 4. Modelling (Part A)
 
@@ -327,13 +329,17 @@ Full mission (LiDAR navigation, then visual docking), nominal config plus **one*
 
 ![Robustness, P](docs/figures/robustness_p.png)
 
+![Robustness, LQR](docs/figures/robustness_lqr.png)
+
+*The same study with the LQR controller: docking success and EKF position error (RMSE and worst case) per condition.*
+
 **80/80 docked.** Noise, blur, occlusion and pushes barely affect the mission. Odometry faults (wheel bias, slip) are the weak point: see failure analysis.
 
 ### Trade-offs
 
-**LQR weights:** a stiffer heading loop (Q_θ or Q/R up) gives no less jitter and more true cross-track on this route; a softer one gives less of both but turns in place more (Section 7).
+**LQR weights:** a stiffer heading loop (Q_θ ×4 or R_ω ×0.25) leaves ω jitter about the same (0.041 / 0.044 vs 0.044 rad/s/step) and roughly doubles true cross-track (6.27 / 5.68 vs 2.95 cm); a softer one (Q_θ ×0.25 or R_ω ×4) lowers both (2.21 / 2.41 cm, jitter 0.034 / 0.032) but turns in place more (Section 7).
 
-**P vs LQR:** P finishes in 31 s vs 44 s and is slightly more accurate nominally (2.0 vs 3.0 cm), but LQR degrades more gracefully under odometry faults (worst error under slip 46 vs 77 cm, NEES 13 vs 37).
+**P vs LQR:** P finishes the full mission in 31 s vs 44 s. True cross-track on the route is the same within noise (2.73 ± 0.21 vs 2.95 ± 0.44 cm, Section 7); nominal EKF position RMSE in the table above is lower with P (2.0 vs 3.0 cm). LQR degrades more gracefully under odometry faults (worst EKF position error under slip 46 vs 77 cm, NEES 13 vs 37).
 
 ### Failure analysis
 
@@ -359,13 +365,23 @@ _Setup, differences from simulation, quantitative sim-vs-hardware comparison._
 
 _What the results do and do not support._
 
+### Control
+
+- **LQR vs P.** LQR is smoother (a quarter of P's yaw-command jitter) but not more accurate against truth (2.95 ± 0.44 vs 2.73 ± 0.21 cm true cross-track, the same within noise) and 13 s slower on the route. The results support LQR as the smoother controller and the more graceful one under odometry faults (Section 8); they do not show that it tracks better.
+- **Tracking error mostly reflects estimation error.** With every tested weight the controller follows its estimate to about 2 cm; true cross-track grows with the odometry error picked up before the marker is usable. The metric does not separate controller quality from estimation quality.
+- **Heavier-weight result only partly explained.** Stiffer weights rotate more and add odometry heading error in the turns (measured), but why the way a turn is driven changes odometry error was not isolated.
+- **Docking depends on the route ending on the marker normal.** Offsets decay over about 0.36 m and the final approach is 0.24 m, so an offset at the last waypoint is only partly removed (6 cm → about 3.5 cm in unit tests). 5/5 docking is shown for the nominal route end, not for arbitrary approach poses.
+- **Narrow evidence base.** The weight and v_ref sweeps use one route and 5 seeds per point; only the heavier-weight check used 20 seeds.
+- **Q/R tuned for nominal conditions.** The weights were chosen and swept on the nominal route; the robustness study used them unchanged.
+- **Future work.** Check the softer heading weights (Q_θ ×0.25, R_ω ×4) over 20 seeds, then re-run docking, the avoidance test and the robustness study before adopting them; isolate the rotation–odometry effect; test docking from offset last-waypoint poses.
+
 ## 11. Individual contributions
 
 | Member | Led | Contributed to |
 |---|---|---|
 | Muhammad Suhaib Khan (1351525) | Part A (modelling), Part C (EKF) | Project page, repository setup |
 | Jaden Gambrill (26065197) | Part B (sensing) and the simulation enviroment | Repository workflow (branch protection, reviews) |
-| Siale Smythe (24831226) | Part D (control) | |
+| Siale Smythe (24831226) | Part D (control) | LQR tracker, visual docking, P vs LQR comparison, Q/R/v_ref sweep and design report, control tests |
 
 ## 12. Generative AI declaration
 
